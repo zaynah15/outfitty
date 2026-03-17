@@ -7,20 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
-  <style>
-    *{box-sizing:border-box;}
-    body{margin:0;padding:0;background:#fff7ec;}
-    ::-webkit-scrollbar{width:5px;height:5px;}
-    ::-webkit-scrollbar-track{background:#f0e6d6;}
-    ::-webkit-scrollbar-thumb{background:#c4a0aa;border-radius:3px;}
-  </style>
+  <style>*{box-sizing:border-box;}body{margin:0;padding:0;background:#fff7ec;}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#f0e6d6}::-webkit-scrollbar-thumb{background:#c4a0aa;border-radius:3px}</style>
 </head>
 <body>
-  <div id="root">
-    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff7ec;font-family:'Cormorant Garamond',Georgia,serif;color:#9e7c84;font-size:18px;">
-      Loading Fitsy…
-    </div>
-  </div>
+  <div id="root"><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff7ec;font-family:'Cormorant Garamond',Georgia,serif;color:#9e7c84;font-size:18px;">Loading Fitsy…</div></div>
   <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
@@ -93,364 +83,440 @@ const STYLE_BUCKETS = [
 ];
 
 // ═══════════════════════════════════════════════════════════
-// SCORING ENGINE v3 — Ground Truth + Signal-Dominant Model
-// Built from 252,000 outfit combinations + 10,000 scored outfits
-// Key principle: OCCASION SIGNAL dominates. Strong signals = high floor.
+// ENGINE — SUBTYPE STYLE ELIGIBILITY SCORES (dataset + expert)
+// Scores are 0-1 per bucket. 0 = hard blocked. 1 = perfect fit.
+// Built from 10,000 outfit combinations + 2024-2026 trend rules
 // ═══════════════════════════════════════════════════════════
 
-// ─── GROUND TRUTH BASE SCORES ───────────────────────────────
-// From scored dataset: actual compatibility per item per occasion
-// Maps to our bucket IDs
-const GROUND_TRUTH_TOPS = {"Cami":{"Casual Everyday":73},"Button-Down":{"Office Work":85},"Knit Top":{"Casual Everyday":72},"Sequin Top":{"Party Night Out":90},"Tank Top":{"Casual Everyday":73},"Off-Shoulder Top":{"Party Night Out":90},"Graphic Tee":{"Casual Everyday":71},"Corset Top":{"Party Night Out":90},"Blouse":{"Office Work":85},"Crop Top":{"Casual Everyday":73},"Cowl Neck Top":{"Party Night Out":90},"Halter Top":{"Party Night Out":90},"T-Shirt":{"Casual Everyday":73},"Silk Blouse":{"Office Work":85},"Bustier":{"Party Night Out":90},"Oxford Shirt":{"Office Work":85}};
-const GROUND_TRUTH_BOTS = {"Jeans Mom":{"Casual Everyday":73,"Party Night Out":90},"Trousers":{"Office Work":85},"Cargo Pants":{"Party Night Out":90,"Casual Everyday":72},"Satin Skirt":{"Party Night Out":90},"Pencil Skirt":{"Office Work":85},"Joggers":{"Casual Everyday":72,"Party Night Out":90},"Jeans Wide Leg":{"Party Night Out":90,"Casual Everyday":73},"Wide-Leg Trousers":{"Office Work":85},"Leather Skirt":{"Party Night Out":90},"Mini Skirt":{"Party Night Out":90}};
-const GT_OCC_MAP = {"Party Night Out":"party","Office Work":"office","Casual Everyday":"casual"};
-
-// ─── SCORED PAIR LOOKUP ──────────────────────────────────────
-// Direct ground-truth scores for known top+bottom+bucket triples
-const SCORED_PAIRS = {"Cami|Jeans Mom|casual":74,"Button-Down|Trousers|office":84,"Knit Top|Jeans Mom|casual":72,"Sequin Top|Cargo Pants|party":89,"Tank Top|Jeans Mom|casual":73,"Off-Shoulder Top|Satin Skirt|party":90,"Button-Down|Pencil Skirt|office":85,"Knit Top|Joggers|casual":73,"Graphic Tee|Cargo Pants|casual":71,"Corset Top|Jeans Wide Leg|party":89,"Blouse|Wide-Leg Trousers|office":85,"Blouse|Pencil Skirt|office":85,"Crop Top|Jeans Mom|casual":71,"Sequin Top|Leather Skirt|party":90,"Button-Down|Wide-Leg Trousers|office":85,"Cowl Neck Top|Jeans Mom|party":90,"Halter Top|Joggers|party":90,"Cowl Neck Top|Leather Skirt|party":90,"Crop Top|Joggers|casual":74,"Knit Top|Cargo Pants|casual":72,"Cami|Jeans Wide Leg|casual":73,"Tank Top|Joggers|casual":73,"Cowl Neck Top|Cargo Pants|party":91,"Blouse|Trousers|office":85,"Off-Shoulder Top|Leather Skirt|party":91,"Halter Top|Jeans Mom|party":89,"T-Shirt|Jeans Mom|casual":73,"Sequin Top|Jeans Mom|party":91,"Silk Blouse|Wide-Leg Trousers|office":85,"Bustier|Mini Skirt|party":89,"Sequin Top|Mini Skirt|party":91,"T-Shirt|Cargo Pants|casual":73,"Corset Top|Mini Skirt|party":89,"Oxford Shirt|Pencil Skirt|office":85,"Graphic Tee|Joggers|casual":71,"Corset Top|Leather Skirt|party":90,"Graphic Tee|Jeans Wide Leg|casual":72,"Tank Top|Cargo Pants|casual":72,"Tank Top|Jeans Wide Leg|casual":72,"Knit Top|Jeans Wide Leg|casual":72,"Halter Top|Cargo Pants|party":90,"Crop Top|Jeans Wide Leg|casual":73,"Oxford Shirt|Trousers|office":85,"Off-Shoulder Top|Mini Skirt|party":90,"Cami|Cargo Pants|casual":72,"T-Shirt|Joggers|casual":73,"Cami|Joggers|casual":71,"Oxford Shirt|Wide-Leg Trousers|office":85,"Sequin Top|Joggers|party":90,"Silk Blouse|Pencil Skirt|office":85,"Off-Shoulder Top|Joggers|party":90,"Halter Top|Leather Skirt|party":90,"Halter Top|Satin Skirt|party":89,"Bustier|Satin Skirt|party":91,"Silk Blouse|Trousers|office":85,"Off-Shoulder Top|Cargo Pants|party":90,"Off-Shoulder Top|Jeans Mom|party":91,"Corset Top|Jeans Mom|party":90,"Corset Top|Joggers|party":90,"Off-Shoulder Top|Jeans Wide Leg|party":90,"Sequin Top|Satin Skirt|party":90,"Corset Top|Cargo Pants|party":89,"Bustier|Joggers|party":90,"Graphic Tee|Jeans Mom|casual":72,"Cowl Neck Top|Jeans Wide Leg|party":90,"Halter Top|Mini Skirt|party":90,"Bustier|Jeans Mom|party":91,"Sequin Top|Jeans Wide Leg|party":90,"Cowl Neck Top|Mini Skirt|party":90,"Halter Top|Jeans Wide Leg|party":90,"Bustier|Jeans Wide Leg|party":89,"Cowl Neck Top|Satin Skirt|party":91,"T-Shirt|Jeans Wide Leg|casual":72,"Crop Top|Cargo Pants|casual":72,"Corset Top|Satin Skirt|party":89,"Bustier|Cargo Pants|party":91,"Bustier|Leather Skirt|party":89,"Cowl Neck Top|Joggers|party":89};
-
-// ─── DATASET COMBO PRIORITIES ────────────────────────────────
-// From 242k outfit dataset: how often each pair appears in each bucket
-const COMBO_PRIORITY = {"Salwar Kameez Top|Leather Skirt":{"summer_picnic":1.0},"Sweater|Jeans Skinny":{"summer_picnic":0.9},"Button-Down|Pants":{"summer_picnic":0.825},"Off-Shoulder Top|Jeans Wide Leg":{"summer_picnic":0.8,"casual":0.836,"minimalist":0.8,"coffee_date":0.711},"Halter Top|Palazzo Pants":{"summer_picnic":0.8,"ethnic":0.794,"minimalist":0.85},"Knit Top|Jeans Wide Leg":{"summer_picnic":0.8},"Ethnic Blouse|Jeans Mom":{"summer_picnic":0.775,"ethnic":0.794},"Wrap Top|Shorts":{"summer_picnic":0.775},"Cowl Neck Top|Sharara":{"summer_picnic":0.775,"office":0.711},"Tie Waist Top|Floral Skirt":{"summer_picnic":0.775,"coffee_date":0.816},"Tank Top|Jeans Wide Leg":{"summer_picnic":0.775},"Halter Top|Churidar":{"summer_picnic":0.775},"Cami|A-Line Skirt":{"summer_picnic":0.75,"casual":0.803},"Ethnic Kurti|Co-ord Bottom":{"summer_picnic":0.75},"Cardigan|Pleated Skirt":{"summer_picnic":0.75},"Knit Top|Denim Skirt":{"summer_picnic":0.75},"Cardigan|Jeans Boyfriend":{"summer_picnic":0.75},"Tiered Ruffle Top|Jeans Wide Leg":{"summer_picnic":0.75,"streetwear":0.718},"Ethnic Blouse|Palazzo Pants":{"summer_picnic":0.75,"streetwear":0.744},"Hoodie|Trousers":{"summer_picnic":0.75,"ethnic":0.824},"Tank Top|Ethnic Dhoti Pant":{"summer_picnic":0.75},"Square Neck Top|A-Line Skirt":{"summer_picnic":0.75,"coffee_date":0.789},"Ethnic Kurti|Shorts":{"summer_picnic":0.75},"Tank Top|Jeans Flare":{"summer_picnic":0.725},"Smocked Top|Wide-Leg Trousers":{"summer_picnic":0.725,"ethnic":0.824},"Asymmetric Top|Pleated Skirt":{"summer_picnic":0.725},"Wrap Top|Jeans Flare":{"summer_picnic":0.725},"Cold Shoulder Top|Trousers":{"summer_picnic":0.725,"office":0.737,"party":0.682},"Sweater|Satin Skirt":{"summer_picnic":0.725,"streetwear":0.744},"Sweatshirt|Wide-Leg Trousers":{"summer_picnic":0.725},"Smocked Top|Jeans Flare":{"summer_picnic":0.7},"Bodysuit|Churidar":{"summer_picnic":0.7},"Button-Down|Denim Skirt":{"summer_picnic":0.7,"minimalist":0.9},"Button-Down|Leggings":{"summer_picnic":0.7},"Ethnic Kurti|Denim Shorts":{"summer_picnic":0.7,"casual":0.869},"Linen Shirt|Mini Skirt":{"summer_picnic":0.7},"Corset Top|Palazzo Pants":{"summer_picnic":0.7},"Tank Top|Skort":{"summer_picnic":0.7,"streetwear":0.821},"Button-Down|Floral Skirt":{"summer_picnic":0.7,"date_night":0.762},"Pullover|Ethnic Salwar":{"summer_picnic":0.7},"Turtleneck|Jeans Boyfriend":{"summer_picnic":0.7},"Peplum Top|Wrap Skirt":{"summer_picnic":0.7},"Off-Shoulder Top|Leather Skirt":{"summer_picnic":0.7},"Tie Waist Top|Biker Shorts":{"summer_picnic":0.7,"coffee_date":0.842},"Peplum Top|Cargo Pants":{"summer_picnic":0.7,"office":0.684},"Co-ord Top|Pleated Skirt":{"summer_picnic":0.7},"Square Neck Top|Mini Skirt":{"summer_picnic":0.7},"Draped Top|Ethnic Dhoti Pant":{"summer_picnic":0.7},"Sweater|Jeans Wide Leg":{"summer_picnic":0.7,"casual":0.836,"party":0.727},"Square Neck Top|Midi Skirt":{"summer_picnic":0.7,"coffee_date":1.0},"Knot Front Top|Jeans Mom":{"summer_picnic":0.7,"ethnic":0.765,"minimalist":0.8},"Button-Down|Satin Skirt":{"summer_picnic":0.7},"Peplum Top|Denim Shorts":{"summer_picnic":0.7},"Shirt|Shorts":{"summer_picnic":0.7},"Polo Shirt|Churidar":{"summer_picnic":0.7,"streetwear":0.718,"date_night":0.714},"Cowl Neck Top|Biker Shorts":{"summer_picnic":0.7},"Peplum Top|Midi Skirt":{"summer_picnic":0.7},"Corset Top|Ethnic Dhoti Pant":{"summer_picnic":0.7},"Asymmetric Top|Biker Shorts":{"summer_picnic":0.7},"Button-Down|Leather Skirt":{"summer_picnic":0.7,"ethnic":0.882},"Sweater|Pleated Skirt":{"summer_picnic":0.675,"coffee_date":0.711},"Square Neck Top|Leather Skirt":{"summer_picnic":0.675,"date_night":0.714},"Cold Shoulder Top|Jeans Wide Leg":{"summer_picnic":0.675,"streetwear":0.692},"Sweetheart Top|Maxi Skirt":{"summer_picnic":0.675,"date_night":0.762},"Shirt|Biker Shorts":{"summer_picnic":0.675},"Crop Top|Maxi Skirt":{"summer_picnic":0.675},"Bustier|Leather Skirt":{"summer_picnic":0.675},"Smocked Top|Joggers":{"summer_picnic":0.675,"date_night":0.714,"casual":0.787},"Sweetheart Top|Denim Shorts":{"summer_picnic":0.675,"party":0.682},"Salwar Kameez Top|A-Line Skirt":{"summer_picnic":0.675},"Linen Shirt|Maxi Skirt":{"summer_picnic":0.675},"Bralette|Denim Skirt":{"summer_picnic":0.675},"Knitted Sweater Off Shoulder|Mini Skirt":{"summer_picnic":0.675,"date_night":0.81},"Oxford Shirt|Palazzo Pants":{"summer_picnic":0.675},"Button-Down|Jeans Flare":{"summer_picnic":0.675,"office":0.763},"Bustier|Biker Shorts":{"summer_picnic":0.675},"Ethnic Blouse|Pencil Skirt":{"summer_picnic":0.675,"ethnic":0.794},"Polo Shirt|Pencil Skirt":{"summer_picnic":0.675},"Linen Shirt|Palazzo Pants":{"summer_picnic":0.675,"date_night":0.762},"Bodysuit|Shorts":{"summer_picnic":0.675},"Pullover|A-Line Skirt":{"summer_picnic":0.675},"Sweatshirt|Satin Skirt":{"summer_picnic":0.675},"Polo Shirt|Jeans Straight":{"summer_picnic":0.675,"streetwear":0.769,"minimalist":0.75},"Cami|Wide-Leg Trousers":{"summer_picnic":0.675},"Crop Top|Denim Skirt":{"summer_picnic":0.675},"Oxford Shirt|Pencil Skirt":{"summer_picnic":0.675},"Button-Down|Sharara":{"summer_picnic":0.675},"Pullover|Leather Skirt":{"summer_picnic":0.675},"Asymmetric Top|Leggings":{"summer_picnic":0.675},"Smocked Top|Mini Skirt":{"summer_picnic":0.675,"date_night":0.762},"Bustier|Shorts":{"summer_picnic":0.675,"streetwear":0.744,"ethnic":0.853},"Cardigan|Denim Shorts":{"summer_picnic":0.675},"Tube Top|Mini Skirt":{"summer_picnic":0.675,"streetwear":0.692},"Sweetheart Top|Trousers":{"summer_picnic":0.675},"Pullover|Floral Skirt":{"summer_picnic":0.675,"coffee_date":0.763},"Bralette|Ethnic Dhoti Pant":{"summer_picnic":0.65,"casual":0.852},"Co-ord Top|Ethnic Salwar":{"summer_picnic":0.65},"Knot Front Top|A-Line Skirt":{"summer_picnic":0.65},"Sweetheart Top|Wrap Skirt":{"summer_picnic":0.65,"casual":0.803},"Tie Waist Top|Leggings":{"summer_picnic":0.65},"Cami|Leggings":{"streetwear":1.0},"Tank Top|Cargo Pants":{"streetwear":0.897,"minimalist":0.9},"Salwar Kameez Top|Co-ord Bottom":{"streetwear":0.872,"date_night":0.714},"Asymmetric Top|Mini Skirt":{"streetwear":0.846},"Draped Top|Jeans Boyfriend":{"streetwear":0.846,"office":0.763},"Oxford Shirt|Ethnic Dhoti Pant":{"streetwear":0.821,"party":0.682},"Cardigan|Co-ord Bottom":{"streetwear":0.821},"Milkmaid Top|Wrap Skirt":{"streetwear":0.821,"ethnic":0.794,"minimalist":0.85},"Knitted Sweater Off Shoulder|Churidar":{"streetwear":0.821,"coffee_date":0.711},"Polo Shirt|Jeans Skinny":{"streetwear":0.821},"Cowl Neck Top|Satin Skirt":{"streetwear":0.795},"Tiered Ruffle Top|Joggers":{"streetwear":0.795},"Button-Down|Palazzo Pants":{"streetwear":0.795,"office":0.974},"Pullover|Jeans Boyfriend":{"streetwear":0.795,"coffee_date":0.711},"Crop Top|Floral Skirt":{"streetwear":0.795,"ethnic":0.853},"Bow Top|Pants":{"streetwear":0.795},"Bow Top|Jeans Straight":{"streetwear":0.769},"Sweatshirt|Jeans Wide Leg":{"streetwear":0.769,"minimalist":0.9,"coffee_date":0.763},"Square Neck Top|Ethnic Salwar":{"streetwear":0.769},"Salwar Kameez Top|Jeans Boyfriend":{"streetwear":0.769,"casual":0.852},"Co-ord Top|Jeans Wide Leg":{"streetwear":0.769},"Knit Top|Maxi Skirt":{"streetwear":0.769},"Tube Top|Sharara":{"streetwear":0.769},"Blouse|Biker Shorts":{"streetwear":0.769},"Halter Top|Denim Skirt":{"streetwear":0.769,"ethnic":0.824},"Knitted Sweater Off Shoulder|Jeans Mom":{"streetwear":0.769,"ethnic":0.794},"Cold Shoulder Top|Biker Shorts":{"streetwear":0.744},"Blouse|Skort":{"streetwear":0.744,"party":0.727},"Knitted Sweater Off Shoulder|Jeans Flare":{"streetwear":0.744},"Cardigan|Biker Shorts":{"streetwear":0.744},"Asymmetric Top|Joggers":{"streetwear":0.744},"Wrap Top|Co-ord Bottom":{"streetwear":0.744,"date_night":0.762,"coffee_date":0.763},"Hoodie|Mini Skirt":{"streetwear":0.744,"ethnic":0.853},"Cowl Neck Top|Palazzo Pants":{"streetwear":0.744,"ethnic":0.882},"Turtleneck|Wide-Leg Trousers":{"streetwear":0.744},"Knitted Sweater Off Shoulder|Palazzo Pants":{"streetwear":0.744},"Smocked Top|Palazzo Pants":{"streetwear":0.744,"date_night":0.905},"Tiered Ruffle Top|Mini Skirt":{"streetwear":0.744},"Tank Top|Wide-Leg Trousers":{"streetwear":0.744},"Tank Top|Denim Skirt":{"streetwear":0.744,"office":0.763,"coffee_date":0.816},"Turtleneck|Skort":{"streetwear":0.744,"coffee_date":0.711},"Cardigan|Palazzo Pants":{"streetwear":0.744},"Tank Top|Jeans Skinny":{"streetwear":0.718,"date_night":0.762},"Bralette|Trousers":{"streetwear":0.718},"Bodysuit|Joggers":{"streetwear":0.718,"ethnic":0.794},"Milkmaid Top|Co-ord Bottom":{"streetwear":0.718},"Cami|Jeans Skinny":{"streetwear":0.718},"Tie Waist Top|Jeans Boyfriend":{"streetwear":0.718},"Oxford Shirt|A-Line Skirt":{"streetwear":0.718},"Bralette|Palazzo Pants":{"streetwear":0.718},"Bralette|Jeans Mom":{"streetwear":0.718,"office":0.711},"Tube Top|Ethnic Dhoti Pant":{"streetwear":0.718,"party":0.864},"Knit Top|Satin Skirt":{"streetwear":0.718,"party":0.727},"Corset Top|Wide-Leg Trousers":{"streetwear":0.718,"casual":0.885},"Cold Shoulder Top|Leather Skirt":{"streetwear":0.718},"Knot Front Top|Floral Skirt":{"streetwear":0.718,"minimalist":0.85},"Salwar Kameez Top|Joggers":{"streetwear":0.718},"Knit Top|Leather Skirt":{"streetwear":0.718,"ethnic":0.912},"Sweater|Churidar":{"streetwear":0.718},"T-Shirt|Jeans Wide Leg":{"streetwear":0.718},"Asymmetric Top|Palazzo Pants":{"streetwear":0.718,"ethnic":0.794},"Bralette|Jeans Wide Leg":{"streetwear":0.718},"Draped Top|Cargo Pants":{"streetwear":0.718,"party":0.682},"Off-Shoulder Top|Satin Skirt":{"streetwear":0.718},"Corset Top|Floral Skirt":{"streetwear":0.718},"Graphic Tee|Denim Shorts":{"streetwear":0.718,"date_night":0.857},"Sweatshirt|Pants":{"streetwear":0.718},"Halter Top|Pencil Skirt":{"streetwear":0.692,"office":0.789},"Tank Top|A-Line Skirt":{"streetwear":0.692},"Bralette|Joggers":{"streetwear":0.692,"date_night":0.714,"party":0.727},"Halter Top|Joggers":{"streetwear":0.692,"minimalist":0.95},"T-Shirt|Cargo Pants":{"streetwear":0.692},"Bow Top|Joggers":{"streetwear":0.692,"minimalist":0.85},"Co-ord Top|Trousers":{"streetwear":0.692},"Turtleneck|Jeans Wide Leg":{"streetwear":0.692},"Cami|Denim Skirt":{"streetwear":0.692},"Bustier|Jeans Skinny":{"streetwear":0.692},"Halter Top|Sharara":{"streetwear":0.692},"Milkmaid Top|Midi Skirt":{"streetwear":0.692,"casual":0.803},"Knit Top|Co-ord Bottom":{"streetwear":0.692},"Bustier|A-Line Skirt":{"streetwear":0.692,"coffee_date":0.711},"Pullover|Churidar":{"streetwear":0.692},"Sweatshirt|Midi Skirt":{"streetwear":0.692},"Blouse|Wrap Skirt":{"streetwear":0.692},"Tank Top|Jeans Straight":{"streetwear":0.692},"Blouse|Jeans Skinny":{"streetwear":0.692},"Milkmaid Top|Shorts":{"streetwear":0.692},"Oxford Shirt|Jeans Straight":{"streetwear":0.692},"Salwar Kameez Top|Denim Skirt":{"streetwear":0.692},"Bow Top|Cargo Pants":{"streetwear":0.692},"Draped Top|Midi Skirt":{"streetwear":0.692},"Cami|Pleated Skirt":{"office":1.0},"Button-Down|Joggers":{"office":0.947,"date_night":0.857},"Graphic Tee|Pleated Skirt":{"office":0.895},"Turtleneck|Satin Skirt":{"office":0.868,"party":0.727},"Square Neck Top|Jeans Skinny":{"office":0.868},"Bralette|Pleated Skirt":{"office":0.868},"Button-Down|Wide-Leg Trousers":{"office":0.868},"Cami|Floral Skirt":{"office":0.842},"Linen Shirt|Pants":{"office":0.842},"Shirt|Ethnic Salwar":{"office":0.842},"Tube Top|Ethnic Salwar":{"office":0.842,"casual":0.967,"party":0.727},"Peplum Top|Trousers":{"office":0.816},"Off-Shoulder Top|Denim Skirt":{"office":0.816,"minimalist":0.75},"Wrap Top|Biker Shorts":{"office":0.816,"date_night":0.762},"Smocked Top|Satin Skirt":{"office":0.816},"Tube Top|Cargo Pants":{"office":0.816,"date_night":0.762},"Bodysuit|Ethnic Dhoti Pant":{"office":0.789},"Oxford Shirt|Jeans Wide Leg":{"office":0.789},"Tiered Ruffle Top|Churidar":{"office":0.789},"Shirt|Midi Skirt":{"office":0.789,"casual":0.803},"Cold Shoulder Top|Denim Shorts":{"office":0.789},"Square Neck Top|Shorts":{"office":0.789},"Off-Shoulder Top|Biker Shorts":{"office":0.789},"Milkmaid Top|Biker Shorts":{"office":0.789,"date_night":0.714},"Off-Shoulder Top|A-Line Skirt":{"office":0.763},"T-Shirt|Jeans Boyfriend":{"office":0.763},"Linen Shirt|Leggings":{"office":0.763},"Ethnic Kurti|Midi Skirt":{"office":0.763},"Asymmetric Top|Churidar":{"office":0.763},"Tie Waist Top|Satin Skirt":{"office":0.763},"Button-Down|Co-ord Bottom":{"office":0.763},"Bodysuit|Maxi Skirt":{"office":0.763},"Tank Top|Leggings":{"office":0.763},"Ethnic Kurti|Denim Skirt":{"office":0.763},"Tank Top|Trousers":{"office":0.763,"party":0.818},"Ethnic Blouse|Joggers":{"office":0.763},"Oxford Shirt|Pleated Skirt":{"office":0.763},"Pullover|Biker Shorts":{"office":0.763},"Hoodie|A-Line Skirt":{"office":0.763,"casual":0.934},"Cardigan|Denim Skirt":{"office":0.763},"Bodysuit|Ethnic Salwar":{"office":0.763},"Cami|Sharara":{"office":0.763,"casual":0.836},"Ethnic Kurti|Jeans Flare":{"office":0.763,"date_night":0.714,"coffee_date":0.737},"Cami|Mini Skirt":{"office":0.737,"party":0.727},"Sweater|Biker Shorts":{"office":0.737},"Milkmaid Top|Leather Skirt":{"office":0.737},"Tiered Ruffle Top|Skort":{"office":0.737,"casual":0.869},"Pullover|Co-ord Bottom":{"office":0.737},"Sweatshirt|Palazzo Pants":{"office":0.737},"Cardigan|Leggings":{"office":0.737},"T-Shirt|Co-ord Bottom":{"office":0.737},"Sweatshirt|Shorts":{"office":0.737,"ethnic":0.941},"Turtleneck|Churidar":{"office":0.737},"Sweatshirt|Leggings":{"office":0.737,"ethnic":0.853},"Corset Top|Co-ord Bottom":{"office":0.737,"minimalist":0.8},"Turtleneck|Trousers":{"office":0.737},"Asymmetric Top|Sharara":{"office":0.711},"Square Neck Top|Leggings":{"office":0.711},"Knot Front Top|Denim Skirt":{"office":0.711},"Tube Top|Jeans Mom":{"office":0.711},"Button-Down|Pleated Skirt":{"office":0.711},"Polo Shirt|Skort":{"office":0.711},"Smocked Top|Floral Skirt":{"office":0.711},"Ethnic Kurti|Trousers":{"office":0.711,"date_night":0.905},"Sweetheart Top|Jeans Straight":{"office":0.711},"Tank Top|Midi Skirt":{"office":0.711,"date_night":0.714},"Pullover|Skort":{"office":0.711},"Square Neck Top|Jeans Wide Leg":{"office":0.711},"Draped Top|Denim Shorts":{"office":0.711},"Cowl Neck Top|Cargo Pants":{"office":0.711,"party":0.682},"Ethnic Kurti|Pleated Skirt":{"office":0.711},"Peplum Top|Shorts":{"office":0.711},"Pullover|Jeans Flare":{"office":0.711},"Shirt|Jeans Skinny":{"office":0.711,"ethnic":0.824},"Turtleneck|Joggers":{"office":0.711},"Milkmaid Top|Maxi Skirt":{"office":0.711},"Off-Shoulder Top|Shorts":{"office":0.711},"Sweater|Ethnic Salwar":{"office":0.711,"casual":0.82},"Tiered Ruffle Top|Jeans Mom":{"office":0.684,"date_night":0.952},"Corset Top|Mini Skirt":{"office":0.684},"Peplum Top|Pleated Skirt":{"office":0.684},"Peplum Top|Jeans Straight":{"office":0.684},"Tie Waist Top|Pencil Skirt":{"office":0.684},"Oxford Shirt|Satin Skirt":{"office":0.684,"coffee_date":0.789},"Bralette|Pants":{"office":0.684,"ethnic":0.794},"Cami|Satin Skirt":{"office":0.684},"Smocked Top|Jeans Wide Leg":{"office":0.684},"Tiered Ruffle Top|A-Line Skirt":{"office":0.684},"Knot Front Top|Midi Skirt":{"office":0.684,"casual":0.803},"Wrap Top|Churidar":{"office":0.684},"Milkmaid Top|Floral Skirt":{"office":0.684,"casual":0.984},"Pullover|Joggers":{"ethnic":1.0},"Peplum Top|Jeans Skinny":{"ethnic":0.971,"minimalist":0.95},"Salwar Kameez Top|Biker Shorts":{"ethnic":0.941},"Corset Top|Leggings":{"ethnic":0.941,"coffee_date":0.684},"Draped Top|Maxi Skirt":{"ethnic":0.912,"minimalist":0.75,"party":0.682},"Knot Front Top|Biker Shorts":{"ethnic":0.912},"Graphic Tee|Satin Skirt":{"ethnic":0.912},"Sweater|Pencil Skirt":{"ethnic":0.912},"Off-Shoulder Top|Denim Shorts":{"ethnic":0.912},"Co-ord Top|Denim Shorts":{"ethnic":0.912},"Ethnic Blouse|Maxi Skirt":{"ethnic":0.882,"date_night":0.81},"Off-Shoulder Top|Ethnic Salwar":{"ethnic":0.882},"Tiered Ruffle Top|Ethnic Dhoti Pant":{"ethnic":0.882,"minimalist":0.85},"Knitted Sweater Off Shoulder|Co-ord Bottom":{"ethnic":0.882},"T-Shirt|Maxi Skirt":{"ethnic":0.882},"Co-ord Top|Joggers":{"ethnic":0.882},"T-Shirt|Wide-Leg Trousers":{"ethnic":0.882},"Ethnic Kurti|Leggings":{"ethnic":0.853},"Polo Shirt|Jeans Wide Leg":{"ethnic":0.853},"Linen Shirt|Biker Shorts":{"ethnic":0.853,"casual":0.836,"minimalist":0.75},"T-Shirt|Wrap Skirt":{"ethnic":0.853},"T-Shirt|Jeans Skinny":{"ethnic":0.853},"Draped Top|Co-ord Bottom":{"ethnic":0.853,"casual":0.885},"Cardigan|Jeans Straight":{"ethnic":0.853,"date_night":0.81},"Wrap Top|Palazzo Pants":{"ethnic":0.853,"casual":0.885},"Hoodie|Jeans Mom":{"ethnic":0.853},"Off-Shoulder Top|Midi Skirt":{"ethnic":0.853,"date_night":0.81},"Linen Shirt|Trousers":{"ethnic":0.853,"minimalist":0.75},"Pullover|Cargo Pants":{"ethnic":0.853,"date_night":0.714,"casual":0.869},"Blouse|Maxi Skirt":{"ethnic":0.853,"casual":0.82,"party":0.727},"Corset Top|Jeans Straight":{"ethnic":0.853,"casual":0.984,"minimalist":0.8},"Oxford Shirt|Wrap Skirt":{"ethnic":0.853},"Knitted Sweater Off Shoulder|Denim Shorts":{"ethnic":0.853},"Cardigan|Trousers":{"ethnic":0.824},"Co-ord Top|Churidar":{"ethnic":0.824},"Cami|Trousers":{"ethnic":0.824},"Crop Top|Midi Skirt":{"ethnic":0.824,"date_night":0.952,"coffee_date":0.737},"Smocked Top|Co-ord Bottom":{"ethnic":0.824,"party":0.682},"Graphic Tee|Jeans Mom":{"ethnic":0.824},"Sweatshirt|Denim Skirt":{"ethnic":0.824,"date_night":0.762,"casual":0.869},"Wrap Top|Trousers":{"ethnic":0.824},"Hoodie|Wide-Leg Trousers":{"ethnic":0.824,"party":0.682},"Milkmaid Top|Sharara":{"ethnic":0.824,"casual":0.803},"Tank Top|Wrap Skirt":{"ethnic":0.824},"Milkmaid Top|Denim Shorts":{"ethnic":0.824},"Knit Top|Jeans Mom":{"ethnic":0.824,"coffee_date":0.763},"Sweetheart Top|Shorts":{"ethnic":0.824},"Cold Shoulder Top|Floral Skirt":{"ethnic":0.824},"Linen Shirt|Skort":{"ethnic":0.824,"minimalist":0.75},"Knot Front Top|Cargo Pants":{"ethnic":0.824},"Knit Top|Churidar":{"ethnic":0.824},"Crop Top|Jeans Mom":{"ethnic":0.824},"Salwar Kameez Top|Wrap Skirt":{"ethnic":0.824,"date_night":0.762},"Square Neck Top|Churidar":{"ethnic":0.824},"Square Neck Top|Floral Skirt":{"ethnic":0.824},"Graphic Tee|Palazzo Pants":{"ethnic":0.824},"Corset Top|Wrap Skirt":{"ethnic":0.794,"date_night":0.714,"minimalist":0.75},"Bodysuit|Co-ord Bottom":{"ethnic":0.794,"date_night":0.857},"Polo Shirt|Cargo Pants":{"ethnic":0.794},"Sweetheart Top|Satin Skirt":{"ethnic":0.794},"Bow Top|Trousers":{"ethnic":0.794,"casual":0.803,"minimalist":1.0},"Sweater|Trousers":{"ethnic":0.794},"Crop Top|Jeans Boyfriend":{"ethnic":0.794},"Cold Shoulder Top|Mini Skirt":{"ethnic":0.794},"Bustier|Sharara":{"ethnic":0.794,"coffee_date":0.737},"Sweatshirt|A-Line Skirt":{"ethnic":0.794},"Corset Top|Ethnic Salwar":{"ethnic":0.794},"Draped Top|Churidar":{"ethnic":0.794},"Shirt|Jeans Flare":{"ethnic":0.794},"Sweater|Jeans Boyfriend":{"ethnic":0.794},"Bow Top|Satin Skirt":{"ethnic":0.794},"Ethnic Kurti|Floral Skirt":{"ethnic":0.794},"Draped Top|Jeans Wide Leg":{"ethnic":0.794},"Cowl Neck Top|Joggers":{"ethnic":0.794},"Halter Top|Pleated Skirt":{"ethnic":0.794},"Cowl Neck Top|Jeans Mom":{"ethnic":0.794},"Turtleneck|Denim Shorts":{"ethnic":0.794},"Ethnic Blouse|Jeans Skinny":{"ethnic":0.794},"Salwar Kameez Top|Denim Shorts":{"ethnic":0.794},"Smocked Top|Leather Skirt":{"date_night":1.0,"casual":0.852},"Graphic Tee|Skort":{"date_night":0.905},"Hoodie|Ethnic Salwar":{"date_night":0.857,"minimalist":0.8,"party":0.682},"Knit Top|Denim Shorts":{"date_night":0.857},"Blouse|Co-ord Bottom":{"date_night":0.857,"coffee_date":0.684},"Knot Front Top|Wide-Leg Trousers":{"date_night":0.857},"Tie Waist Top|Trousers":{"date_night":0.857},"Crop Top|Denim Shorts":{"date_night":0.81},"Smocked Top|Pencil Skirt":{"date_night":0.81},"Milkmaid Top|Satin Skirt":{"date_night":0.81},"Cold Shoulder Top|Wide-Leg Trousers":{"date_night":0.81},"Corset Top|Shorts":{"date_night":0.81},"Corset Top|Trousers":{"date_night":0.81},"Button-Down|Wrap Skirt":{"date_night":0.81},"Turtleneck|Biker Shorts":{"date_night":0.81},"Cami|Ethnic Salwar":{"date_night":0.81},"Graphic Tee|Ethnic Dhoti Pant":{"date_night":0.81,"minimalist":0.75,"party":0.773},"Button-Down|Ethnic Salwar":{"date_night":0.81,"party":0.727},"Tiered Ruffle Top|Floral Skirt":{"date_night":0.81},"Co-ord Top|Biker Shorts":{"date_night":0.762},"Button-Down|Trousers":{"date_night":0.762},"Cami|Shorts":{"date_night":0.762},"Pullover|Pencil Skirt":{"date_night":0.762},"Graphic Tee|Jeans Skinny":{"date_night":0.762},"Knot Front Top|Wrap Skirt":{"date_night":0.762},"Co-ord Top|Mini Skirt":{"date_night":0.762},"Tiered Ruffle Top|Jeans Skinny":{"date_night":0.762},"Wrap Top|Ethnic Salwar":{"date_night":0.762},"Tank Top|Sharara":{"date_night":0.762},"Cami|Leather Skirt":{"date_night":0.762},"Cardigan|Maxi Skirt":{"date_night":0.762},"Draped Top|Ethnic Salwar":{"date_night":0.762},"Halter Top|Shorts":{"date_night":0.762},"Tiered Ruffle Top|Leather Skirt":{"date_night":0.762},"Shirt|Leather Skirt":{"date_night":0.762},"Linen Shirt|Cargo Pants":{"date_night":0.762},"Co-ord Top|Satin Skirt":{"date_night":0.762},"Crop Top|Pencil Skirt":{"date_night":0.762,"coffee_date":0.737},"Halter Top|Wide-Leg Trousers":{"date_night":0.762},"Halter Top|Jeans Skinny":{"date_night":0.714},"Shirt|Leggings":{"date_night":0.714},"Cowl Neck Top|Trousers":{"date_night":0.714,"casual":0.869,"party":0.682},"Sweatshirt|Jeans Mom":{"date_night":0.714,"casual":0.803},"Sweatshirt|Jeans Skinny":{"date_night":0.714},"Corset Top|Leather Skirt":{"date_night":0.714},"Milkmaid Top|Denim Skirt":{"date_night":0.714},"Tube Top|Jeans Wide Leg":{"date_night":0.714,"minimalist":0.8},"Wrap Top|Denim Skirt":{"date_night":0.714},"Knot Front Top|Denim Shorts":{"date_night":0.714},"Crop Top|Pleated Skirt":{"date_night":0.714},"Bodysuit|Denim Shorts":{"date_night":0.714},"Co-ord Top|Jeans Flare":{"date_night":0.714},"Pullover|Jeans Mom":{"date_night":0.714},"Corset Top|Denim Shorts":{"date_night":0.714,"casual":0.787},"T-Shirt|Trousers":{"date_night":0.714},"Button-Down|Denim Shorts":{"date_night":0.714},"Bow Top|Churidar":{"date_night":0.714},"Crop Top|Satin Skirt":{"date_night":0.714},"Sweatshirt|Pencil Skirt":{"date_night":0.714,"coffee_date":0.711},"Cardigan|Ethnic Salwar":{"date_night":0.714,"casual":1.0},"Sweetheart Top|Ethnic Dhoti Pant":{"date_night":0.714,"coffee_date":0.895},"Co-ord Top|Palazzo Pants":{"date_night":0.714},"Square Neck Top|Wrap Skirt":{"date_night":0.714,"coffee_date":0.737},"Crop Top|Wrap Skirt":{"date_night":0.714},"Square Neck Top|Co-ord Bottom":{"date_night":0.714},"Button-Down|A-Line Skirt":{"date_night":0.714},"Smocked Top|Leggings":{"date_night":0.714},"Bralette|Wrap Skirt":{"date_night":0.714,"coffee_date":0.763},"Bow Top|Pencil Skirt":{"date_night":0.714},"Polo Shirt|Jeans Mom":{"casual":1.0},"Linen Shirt|Jeans Mom":{"casual":0.984},"Asymmetric Top|Jeans Boyfriend":{"casual":0.918},"Knot Front Top|Palazzo Pants":{"casual":0.918},"Bodysuit|Leather Skirt":{"casual":0.918},"Hoodie|Leggings":{"casual":0.902},"Asymmetric Top|Jeans Straight":{"casual":0.902},"Tank Top|Maxi Skirt":{"casual":0.902},"Knot Front Top|Pants":{"casual":0.885},"Cardigan|Wrap Skirt":{"casual":0.885,"party":0.682},"Bow Top|Midi Skirt":{"casual":0.885},"Tank Top|Satin Skirt":{"casual":0.885},"Linen Shirt|Ethnic Salwar":{"casual":0.869},"Ethnic Kurti|Satin Skirt":{"casual":0.869},"Tie Waist Top|Wide-Leg Trousers":{"casual":0.869,"party":0.727},"Graphic Tee|Co-ord Bottom":{"casual":0.869,"minimalist":0.8,"coffee_date":0.684},"Ethnic Kurti|Biker Shorts":{"casual":0.852},"Knitted Sweater Off Shoulder|Trousers":{"casual":0.852},"Cowl Neck Top|Jeans Straight":{"casual":0.852},"Blouse|Floral Skirt":{"casual":0.852},"Bustier|Churidar":{"casual":0.852},"Cowl Neck Top|Wide-Leg Trousers":{"casual":0.836},"Hoodie|Churidar":{"casual":0.836},"Knitted Sweater Off Shoulder|Midi Skirt":{"casual":0.836,"coffee_date":0.711},"Cami|Cargo Pants":{"casual":0.836},"Ethnic Blouse|Jeans Flare":{"casual":0.836},"Linen Shirt|Joggers":{"casual":0.836},"Graphic Tee|Pencil Skirt":{"casual":0.836},"Cowl Neck Top|Pants":{"casual":0.836,"minimalist":0.75,"coffee_date":0.737},"Cowl Neck Top|Ethnic Salwar":{"casual":0.836},"Knitted Sweater Off Shoulder|Wrap Skirt":{"casual":0.836,"coffee_date":0.737},"Draped Top|A-Line Skirt":{"casual":0.82},"T-Shirt|Ethnic Dhoti Pant":{"casual":0.82},"Knit Top|Floral Skirt":{"casual":0.82},"Tiered Ruffle Top|Wrap Skirt":{"casual":0.82,"coffee_date":0.684},"Cardigan|Leather Skirt":{"casual":0.82},"Co-ord Top|Maxi Skirt":{"casual":0.82},"Tube Top|Satin Skirt":{"casual":0.82},"Polo Shirt|Jeans Flare":{"casual":0.82},"Blouse|Shorts":{"casual":0.82},"Hoodie|Jeans Skinny":{"casual":0.82},"Button-Down|Skort":{"casual":0.82},"Salwar Kameez Top|Skort":{"casual":0.82},"Asymmetric Top|Leather Skirt":{"casual":0.82,"minimalist":0.9},"Graphic Tee|Shorts":{"casual":0.82},"Sweetheart Top|A-Line Skirt":{"casual":0.82},"Cold Shoulder Top|Denim Skirt":{"casual":0.82},"Knit Top|Jeans Flare":{"casual":0.82},"Tiered Ruffle Top|Biker Shorts":{"casual":0.803},"Asymmetric Top|A-Line Skirt":{"casual":0.803},"Sweetheart Top|Pants":{"casual":0.803},"Peplum Top|Palazzo Pants":{"casual":0.803},"Corset Top|Pants":{"casual":0.803,"minimalist":0.9},"Oxford Shirt|Shorts":{"casual":0.803},"Cowl Neck Top|Midi Skirt":{"casual":0.803},"Bodysuit|Wrap Skirt":{"casual":0.803},"Ethnic Blouse|Wide-Leg Trousers":{"casual":0.803,"party":0.682},"Bustier|Joggers":{"casual":0.803},"Salwar Kameez Top|Jeans Flare":{"casual":0.803},"Bustier|Maxi Skirt":{"casual":0.803},"Square Neck Top|Wide-Leg Trousers":{"casual":0.803},"Cardigan|Joggers":{"casual":0.803,"coffee_date":0.842},"Co-ord Top|Jeans Skinny":{"casual":0.803,"party":0.773},"Bodysuit|Skort":{"casual":0.787},"Tube Top|Jeans Flare":{"casual":0.787},"Corset Top|Biker Shorts":{"casual":0.787},"Smocked Top|Biker Shorts":{"casual":0.787},"Ethnic Blouse|A-Line Skirt":{"casual":0.787},"Bow Top|Leggings":{"minimalist":1.0},"Oxford Shirt|Denim Shorts":{"minimalist":0.95},"Draped Top|Jeans Mom":{"minimalist":0.95},"Sweatshirt|Maxi Skirt":{"minimalist":0.9},"Peplum Top|Biker Shorts":{"minimalist":0.9},"Knot Front Top|Leather Skirt":{"minimalist":0.9},"Knot Front Top|Jeans Flare":{"minimalist":0.9},"Polo Shirt|Wrap Skirt":{"minimalist":0.9},"Linen Shirt|Jeans Straight":{"minimalist":0.9},"Tiered Ruffle Top|Jeans Straight":{"minimalist":0.85},"Corset Top|Jeans Wide Leg":{"minimalist":0.85},"Ethnic Blouse|Satin Skirt":{"minimalist":0.85},"Hoodie|Midi Skirt":{"minimalist":0.85},"Shirt|Joggers":{"minimalist":0.85},"Cowl Neck Top|Pencil Skirt":{"minimalist":0.85},"Corset Top|Sharara":{"minimalist":0.85},"Pullover|Leggings":{"minimalist":0.85},"Bralette|Satin Skirt":{"minimalist":0.85},"T-Shirt|Mini Skirt":{"minimalist":0.85},"Cowl Neck Top|Jeans Boyfriend":{"minimalist":0.85},"Blouse|Joggers":{"minimalist":0.85},"Tank Top|Jeans Boyfriend":{"minimalist":0.85,"party":0.727,"coffee_date":0.711},"Cold Shoulder Top|Co-ord Bottom":{"minimalist":0.85},"Pullover|Wide-Leg Trousers":{"minimalist":0.85,"party":0.682},"Hoodie|Ethnic Dhoti Pant":{"minimalist":0.85},"Ethnic Blouse|Wrap Skirt":{"minimalist":0.85},"Peplum Top|Pants":{"minimalist":0.85},"Shirt|Pencil Skirt":{"minimalist":0.85},"Graphic Tee|A-Line Skirt":{"minimalist":0.85},"Graphic Tee|Jeans Flare":{"minimalist":0.8,"party":0.682},"Square Neck Top|Cargo Pants":{"minimalist":0.8},"Sweatshirt|Floral Skirt":{"minimalist":0.8},"Salwar Kameez Top|Jeans Skinny":{"minimalist":0.8},"Bow Top|Jeans Wide Leg":{"minimalist":0.8},"Turtleneck|Floral Skirt":{"minimalist":0.8},"Tube Top|Biker Shorts":{"minimalist":0.8,"party":0.682},"Sweetheart Top|Jeans Wide Leg":{"minimalist":0.8},"Knot Front Top|Churidar":{"minimalist":0.8},"Off-Shoulder Top|Palazzo Pants":{"minimalist":0.8},"Tube Top|Denim Skirt":{"minimalist":0.8},"Knit Top|Jeans Skinny":{"minimalist":0.8},"Sweatshirt|Wrap Skirt":{"minimalist":0.8},"Peplum Top|Leather Skirt":{"minimalist":0.8},"Smocked Top|Cargo Pants":{"minimalist":0.8},"Polo Shirt|Denim Shorts":{"minimalist":0.8},"Draped Top|Denim Skirt":{"minimalist":0.8},"Knot Front Top|Jeans Boyfriend":{"minimalist":0.8},"Graphic Tee|Ethnic Salwar":{"minimalist":0.8},"Button-Down|Jeans Boyfriend":{"minimalist":0.8},"Ethnic Kurti|Mini Skirt":{"minimalist":0.75},"Bodysuit|A-Line Skirt":{"minimalist":0.75},"Oxford Shirt|Maxi Skirt":{"minimalist":0.75},"Square Neck Top|Sharara":{"minimalist":0.75},"Salwar Kameez Top|Jeans Mom":{"minimalist":0.75},"Cold Shoulder Top|A-Line Skirt":{"minimalist":0.75,"coffee_date":0.711},"Ethnic Kurti|Skort":{"minimalist":0.75},"Bralette|Ethnic Salwar":{"minimalist":0.75},"Bustier|Pleated Skirt":{"minimalist":0.75},"Graphic Tee|Pants":{"minimalist":0.75},"Knot Front Top|Leggings":{"minimalist":0.75},"Shirt|Ethnic Dhoti Pant":{"minimalist":0.75},"Halter Top|Mini Skirt":{"minimalist":0.75},"Sweater|Wrap Skirt":{"minimalist":0.75},"Tube Top|Pants":{"minimalist":0.75},"Co-ord Top|Wrap Skirt":{"minimalist":0.75},"Off-Shoulder Top|Maxi Skirt":{"minimalist":0.75},"Cardigan|Shorts":{"minimalist":0.75,"coffee_date":0.711},"Tie Waist Top|Denim Shorts":{"minimalist":0.75},"Knit Top|Mini Skirt":{"minimalist":0.75},"Knit Top|Biker Shorts":{"minimalist":0.75},"Sweatshirt|Jeans Boyfriend":{"minimalist":0.75},"Button-Down|Jeans Mom":{"party":1.0,"coffee_date":0.684},"Tie Waist Top|Jeans Straight":{"party":0.864},"Halter Top|Trousers":{"party":0.864},"Hoodie|Joggers":{"party":0.864},"Wrap Top|Leather Skirt":{"party":0.818},"Shirt|Denim Skirt":{"party":0.818},"Polo Shirt|Biker Shorts":{"party":0.818},"T-Shirt|Ethnic Salwar":{"party":0.818},"Knot Front Top|Jeans Wide Leg":{"party":0.818},"Bustier|Palazzo Pants":{"party":0.818},"Crop Top|Cargo Pants":{"party":0.818},"Smocked Top|Pleated Skirt":{"party":0.818},"Corset Top|Skort":{"party":0.773},"Halter Top|Pants":{"party":0.773},"Button-Down|Midi Skirt":{"party":0.773},"Bow Top|Jeans Skinny":{"party":0.773},"Ethnic Kurti|Ethnic Salwar":{"party":0.773},"Halter Top|Leggings":{"party":0.773},"Peplum Top|Leggings":{"party":0.773},"Bodysuit|Jeans Wide Leg":{"party":0.773},"Cowl Neck Top|Wrap Skirt":{"party":0.773},"Knitted Sweater Off Shoulder|Ethnic Salwar":{"party":0.773},"Off-Shoulder Top|Skort":{"party":0.773,"coffee_date":0.711},"Sweetheart Top|Jeans Boyfriend":{"party":0.773},"Asymmetric Top|Jeans Mom":{"party":0.773},"Peplum Top|Pencil Skirt":{"party":0.773},"Ethnic Blouse|Trousers":{"party":0.773},"Graphic Tee|Floral Skirt":{"party":0.727},"Draped Top|Mini Skirt":{"party":0.727},"Sweetheart Top|Leggings":{"party":0.727},"Halter Top|Skort":{"party":0.727,"coffee_date":0.895},"Bodysuit|Jeans Boyfriend":{"party":0.727},"Bustier|Leggings":{"party":0.727},"Knot Front Top|Pencil Skirt":{"party":0.727},"Salwar Kameez Top|Wide-Leg Trousers":{"party":0.727},"Oxford Shirt|Sharara":{"party":0.727},"Polo Shirt|Ethnic Dhoti Pant":{"party":0.727},"Linen Shirt|Wrap Skirt":{"party":0.727},"Shirt|Sharara":{"party":0.727},"Button-Down|Jeans Straight":{"party":0.682},"Pullover|Ethnic Dhoti Pant":{"party":0.682},"T-Shirt|Sharara":{"party":0.682},"T-Shirt|A-Line Skirt":{"party":0.682},"Tiered Ruffle Top|Denim Skirt":{"party":0.682,"coffee_date":0.816},"Linen Shirt|Shorts":{"party":0.682},"T-Shirt|Palazzo Pants":{"party":0.682},"Tiered Ruffle Top|Pencil Skirt":{"party":0.682},"Cowl Neck Top|Jeans Skinny":{"party":0.682},"Asymmetric Top|Pencil Skirt":{"party":0.682},"Milkmaid Top|Skort":{"party":0.682},"Cowl Neck Top|Co-ord Bottom":{"party":0.682,"coffee_date":0.763},"Bodysuit|Jeans Mom":{"party":0.682},"Bustier|Mini Skirt":{"party":0.682},"Sweatshirt|Churidar":{"party":0.682},"Knit Top|Leggings":{"party":0.682},"Bralette|Cargo Pants":{"party":0.682},"Polo Shirt|Palazzo Pants":{"party":0.682},"Sweater|Leggings":{"party":0.682},"Turtleneck|A-Line Skirt":{"party":0.682},"Blouse|Satin Skirt":{"party":0.682},"Sweatshirt|Leather Skirt":{"party":0.682},"Cami|Pants":{"party":0.682},"Tube Top|Skort":{"party":0.682},"Graphic Tee|Mini Skirt":{"party":0.682},"Peplum Top|A-Line Skirt":{"party":0.682},"Tiered Ruffle Top|Trousers":{"party":0.682},"Graphic Tee|Leggings":{"party":0.682},"Shirt|Jeans Straight":{"party":0.682},"Polo Shirt|Sharara":{"party":0.682},"Corset Top|A-Line Skirt":{"party":0.682},"Sweater|Denim Skirt":{"coffee_date":0.974},"Tiered Ruffle Top|Leggings":{"coffee_date":0.974},"Tank Top|Palazzo Pants":{"coffee_date":0.921},"Knit Top|Jeans Straight":{"coffee_date":0.895},"Blouse|Palazzo Pants":{"coffee_date":0.868},"Bodysuit|Mini Skirt":{"coffee_date":0.842},"Cami|Joggers":{"coffee_date":0.842},"Bow Top|Sharara":{"coffee_date":0.842},"Sweetheart Top|Co-ord Bottom":{"coffee_date":0.842},"Smocked Top|Shorts":{"coffee_date":0.816},"Bow Top|Wrap Skirt":{"coffee_date":0.789},"Bralette|Maxi Skirt":{"coffee_date":0.789},"Cami|Wrap Skirt":{"coffee_date":0.789},"Turtleneck|Shorts":{"coffee_date":0.789},"Oxford Shirt|Biker Shorts":{"coffee_date":0.789},"Wrap Top|Maxi Skirt":{"coffee_date":0.789},"Graphic Tee|Sharara":{"coffee_date":0.789},"Ethnic Blouse|Floral Skirt":{"coffee_date":0.789},"Wrap Top|Ethnic Dhoti Pant":{"coffee_date":0.789},"Milkmaid Top|Ethnic Salwar":{"coffee_date":0.763},"Graphic Tee|Wrap Skirt":{"coffee_date":0.763},"Corset Top|Churidar":{"coffee_date":0.763},"Tiered Ruffle Top|Maxi Skirt":{"coffee_date":0.763},"Halter Top|Ethnic Dhoti Pant":{"coffee_date":0.763},"Asymmetric Top|Ethnic Salwar":{"coffee_date":0.763},"Crop Top|Jeans Wide Leg":{"coffee_date":0.763},"Shirt|Cargo Pants":{"coffee_date":0.763},"Sweater|Shorts":{"coffee_date":0.737},"Knit Top|Midi Skirt":{"coffee_date":0.737},"Crop Top|Sharara":{"coffee_date":0.737},"T-Shirt|Churidar":{"coffee_date":0.737},"Draped Top|Wide-Leg Trousers":{"coffee_date":0.737},"Smocked Top|Churidar":{"coffee_date":0.737},"Oxford Shirt|Leather Skirt":{"coffee_date":0.737},"Smocked Top|Midi Skirt":{"coffee_date":0.737},"Bralette|Jeans Flare":{"coffee_date":0.737},"Sweatshirt|Jeans Flare":{"coffee_date":0.737},"Off-Shoulder Top|Leggings":{"coffee_date":0.711},"Off-Shoulder Top|Pleated Skirt":{"coffee_date":0.711},"Sweetheart Top|Ethnic Salwar":{"coffee_date":0.711},"T-Shirt|Biker Shorts":{"coffee_date":0.711},"Knitted Sweater Off Shoulder|Pants":{"coffee_date":0.711},"Tank Top|Pencil Skirt":{"coffee_date":0.711},"Draped Top|Skort":{"coffee_date":0.711},"Knitted Sweater Off Shoulder|Skort":{"coffee_date":0.711},"Blouse|Jeans Straight":{"coffee_date":0.711},"Turtleneck|Sharara":{"coffee_date":0.711},"Crop Top|Co-ord Bottom":{"coffee_date":0.711},"Tube Top|Wide-Leg Trousers":{"coffee_date":0.711},"Tie Waist Top|Churidar":{"coffee_date":0.711},"Sweetheart Top|Wide-Leg Trousers":{"coffee_date":0.711},"Sweater|Leather Skirt":{"coffee_date":0.711},"Draped Top|Sharara":{"coffee_date":0.711},"Ethnic Kurti|Pencil Skirt":{"coffee_date":0.711},"Ethnic Blouse|Ethnic Dhoti Pant":{"coffee_date":0.711},"Knitted Sweater Off Shoulder|Floral Skirt":{"coffee_date":0.684},"Draped Top|Jeans Skinny":{"coffee_date":0.684},"Hoodie|Pleated Skirt":{"coffee_date":0.684},"Tank Top|Jeans Mom":{"coffee_date":0.684},"Knot Front Top|Maxi Skirt":{"coffee_date":0.684}};
-
-// ─── OCCASION SIGNAL TAXONOMY ────────────────────────────────
-// TIER 1: Dominant signal — item DEFINES the occasion (base 85-100)
-// TIER 2: Strong signal — item clearly fits (base 75-85)
-// TIER 3: Compatible — neutral item, works with anything (base 65-75)
-// TIER 4: Clash — item fights the occasion (penalty)
-
-const OCCASION_SIGNALS = {
-  party: {
-    tier1_tops:    ["Sequin Top","Bustier","Corset Top","Off-Shoulder Top","Halter Top","Cowl Neck Top","Tube Top","Slip Dress","Bodycon Dress","Sequin Dress","Mermaid Gown"],
-    tier1_bots:    ["Satin Skirt","Leather Skirt","Mini Skirt","Mini Dress"],
-    tier2_tops:    ["Bralette","Crop Top","Cami","Sweetheart Neck Top","Asymmetric Top","Smocked Top","Draped Top","Wrap Top","Off-Shoulder Dress","Bodycon Dress","Baby Doll Dress"],
-    tier2_bots:    ["Jeans Mom","Jeans Wide Leg","Jeans Flare","Cargo Pants","Joggers","Skort","Pencil Skirt","Midi Skirt","A-Line Skirt","Leather Skirt","Wrap Skirt"],
-    tier3_tops:    ["Blouse","Knit Top","Peplum Top","Bow Top","Tank Top","Milkmaid Top","Tie Waist Top","Tiered Ruffle Top"],
-    tier3_bots:    ["Jeans Skinny","Jeans Straight","Jeans Boyfriend","Wide-Leg Trousers","Palazzo Pants","Shorts","Denim Shorts","Floral Skirt","Pleated Skirt","Maxi Skirt"],
-    clash_tops:    ["Hoodie","Sweatshirt","T-Shirt","Graphic Tee","Oxford Shirt","Linen Shirt","Button-Down","Polo Shirt","Turtleneck","Pullover","Sweater"],
-    clash_bots:    ["Leggings","Biker Shorts","Joggers"],
-    neutral_tops:  ["Bodysuit","Bustier","Bow Top"],
-  },
-  office: {
-    tier1_tops:    ["Oxford Shirt","Silk Blouse","Blouse","Button-Down","Blazer","Turtleneck","Peplum Top","Polo Shirt","Wrap Top"],
-    tier1_bots:    ["Trousers","Wide-Leg Trousers","Pencil Skirt","Midi Skirt","Maxi Skirt","A-Line Skirt","Palazzo Pants"],
-    tier2_tops:    ["Knit Top","Sweater","Pullover","Cami","Tank Top","Bodysuit","Cowl Neck Top","Cardigan"],
-    tier2_bots:    ["Jeans Straight","Jeans Skinny","Satin Skirt","Wrap Skirt","Floral Skirt","Pleated Skirt"],
-    tier3_tops:    ["Crop Top","Smocked Top","Tiered Ruffle Top","Bow Top"],
-    tier3_bots:    ["Jeans Mom","Jeans Wide Leg","Jeans Boyfriend","Jeans Flare","Denim Skirt","A-Line Skirt"],
-    clash_tops:    ["Sequin Top","Bustier","Corset Top","Halter Top","Bralette","Hoodie","Sweatshirt","Graphic Tee"],
-    clash_bots:    ["Cargo Pants","Joggers","Leggings","Biker Shorts","Shorts","Denim Shorts","Mini Skirt","Leather Skirt"],
-  },
-  casual: {
-    tier1_tops:    ["T-Shirt","Graphic Tee","Crop Top","Tank Top","Cami","Knit Top","Sweatshirt","Hoodie","Linen Shirt","Polo Shirt"],
-    tier1_bots:    ["Jeans Skinny","Jeans Straight","Jeans Wide Leg","Jeans Mom","Jeans Flare","Jeans Boyfriend","Denim Shorts","Shorts","Leggings","Cargo Pants"],
-    tier2_tops:    ["Blouse","Button-Down","Wrap Top","Sweater","Pullover","Oxford Shirt","Knit Top","Bodysuit","Cami","Smocked Top"],
-    tier2_bots:    ["Joggers","Biker Shorts","A-Line Skirt","Midi Skirt","Denim Skirt","Floral Skirt","Palazzo Pants","Mini Skirt","Maxi Skirt"],
-    tier3_tops:    ["Peplum Top","Turtleneck","Bow Top","Tiered Ruffle Top","Milkmaid Top","Off-Shoulder Top"],
-    tier3_bots:    ["Trousers","Wide-Leg Trousers","Pencil Skirt","Satin Skirt","Wrap Skirt","Pleated Skirt"],
-    clash_tops:    ["Sequin Top","Bustier","Corset Top","Bralette","Silk Blouse"],
-    clash_bots:    ["Leather Skirt","Satin Skirt"],
-  },
-  date_night: {
-    tier1_tops:    ["Slip Dress","Corset Top","Bustier","Halter Top","Cowl Neck Top","Off-Shoulder Top","Bodycon Dress","Cami","Bodysuit","Tube Top"],
-    tier1_bots:    ["Leather Skirt","Satin Skirt","Mini Skirt","Jeans Skinny","Pencil Skirt"],
-    tier2_tops:    ["Wrap Top","Sweetheart Neck Top","Draped Top","Asymmetric Top","Knit Top","Crop Top","Bralette","Sequin Top"],
-    tier2_bots:    ["Midi Skirt","Jeans Mom","Jeans Straight","Jeans Wide Leg","Wrap Skirt","A-Line Skirt","Jeans Flare"],
-    tier3_tops:    ["Blouse","Peplum Top","Bow Top","Smocked Top","Tiered Ruffle Top"],
-    tier3_bots:    ["Wide-Leg Trousers","Palazzo Pants","Pleated Skirt","Floral Skirt","Denim Skirt"],
-    clash_tops:    ["Hoodie","Sweatshirt","Graphic Tee","T-Shirt","Linen Shirt","Oxford Shirt"],
-    clash_bots:    ["Cargo Pants","Joggers","Leggings","Biker Shorts","Denim Shorts","Shorts"],
-  },
-  coffee_date: {
-    tier1_tops:    ["Wrap Top","Knit Top","Blouse","Cami","Smocked Top","Milkmaid Top","Sweetheart Neck Top","Peplum Top","Tiered Ruffle Top","Bow Top"],
-    tier1_bots:    ["Midi Skirt","A-Line Skirt","Floral Skirt","Denim Skirt","Jeans Straight","Jeans Skinny","Wrap Skirt","Pleated Skirt"],
-    tier2_tops:    ["Crop Top","Bodysuit","Oxford Shirt","Linen Shirt","Polo Shirt","Button-Down","Tank Top","Turtleneck","Sweater"],
-    tier2_bots:    ["Jeans Mom","Jeans Wide Leg","Jeans Flare","Jeans Boyfriend","Maxi Skirt","Skort","Palazzo Pants","Wide-Leg Trousers"],
-    tier3_tops:    ["T-Shirt","Graphic Tee","Sweatshirt","Off-Shoulder Top","Draped Top"],
-    tier3_bots:    ["Cargo Pants","Leggings","Trousers","Shorts","Mini Skirt","Pencil Skirt","Biker Shorts"],
-    clash_tops:    ["Sequin Top","Bustier","Bralette","Hoodie"],
-    clash_bots:    ["Leather Skirt","Satin Skirt","Joggers"],
-  },
-  summer_picnic: {
-    tier1_tops:    ["Cami","Tank Top","Crop Top","Linen Shirt","Smocked Top","Milkmaid Top","Off-Shoulder Top","T-Shirt","Halter Top","Tiered Ruffle Top"],
-    tier1_bots:    ["Floral Skirt","Maxi Skirt","Denim Shorts","Shorts","A-Line Skirt","Midi Skirt","Jeans Straight","Jeans Mom"],
-    tier2_tops:    ["Wrap Top","Blouse","Knit Top","Polo Shirt","Oxford Shirt","Bodysuit","Sweetheart Neck Top","Bow Top"],
-    tier2_bots:    ["Jeans Wide Leg","Jeans Flare","Jeans Skinny","Mini Skirt","Skort","Wrap Skirt","Palazzo Pants","Leggings"],
-    tier3_tops:    ["Button-Down","Graphic Tee","Peplum Top","Draped Top","Cardigan"],
-    tier3_bots:    ["Cargo Pants","Wide-Leg Trousers","Trousers","Denim Skirt","Pleated Skirt"],
-    clash_tops:    ["Sequin Top","Bustier","Corset Top","Hoodie","Sweatshirt","Turtleneck","Silk Blouse"],
-    clash_bots:    ["Leather Skirt","Satin Skirt","Pencil Skirt","Joggers","Biker Shorts"],
-  },
-  streetwear: {
-    tier1_tops:    ["Graphic Tee","Hoodie","Sweatshirt","Crop Top","Bralette","Oversized T-Shirt","Asymmetric Top"],
-    tier1_bots:    ["Cargo Pants","Joggers","Biker Shorts","Jeans Straight","Jeans Wide Leg","Jeans Boyfriend","Jeans Skinny","Leggings"],
-    tier2_tops:    ["T-Shirt","Tank Top","Polo Shirt","Cami","Knit Top","Tube Top","Button-Down"],
-    tier2_bots:    ["Denim Shorts","Shorts","Mini Skirt","Denim Skirt","Skort","Jeans Mom","Jeans Flare"],
-    tier3_tops:    ["Oxford Shirt","Linen Shirt","Wrap Top","Corset Top","Bustier"],
-    tier3_bots:    ["Midi Skirt","A-Line Skirt","Floral Skirt","Palazzo Pants","Wrap Skirt"],
-    clash_tops:    ["Sequin Top","Silk Blouse","Blouse","Peplum Top","Turtleneck","Sweater"],
-    clash_bots:    ["Trousers","Wide-Leg Trousers","Pencil Skirt","Satin Skirt","Leather Skirt","Maxi Skirt"],
-  },
-  minimalist: {
-    tier1_tops:    ["Turtleneck","Silk Blouse","Cami","Tank Top","Bodysuit","Wrap Top","Knit Top","Blouse"],
-    tier1_bots:    ["Wide-Leg Trousers","Trousers","Midi Skirt","Maxi Skirt","Palazzo Pants","Pencil Skirt","Jeans Straight"],
-    tier2_tops:    ["T-Shirt","Sweater","Pullover","Crop Top","Polo Shirt","Oxford Shirt","Button-Down"],
-    tier2_bots:    ["Jeans Skinny","Jeans Wide Leg","Jeans Mom","A-Line Skirt","Wrap Skirt","Floral Skirt"],
-    tier3_tops:    ["Linen Shirt","Smocked Top","Peplum Top","Bow Top","Cardigan"],
-    tier3_bots:    ["Satin Skirt","Leather Skirt","Mini Skirt","Pleated Skirt","Denim Skirt"],
-    clash_tops:    ["Graphic Tee","Hoodie","Sweatshirt","Sequin Top","Tiered Ruffle Top","Bustier"],
-    clash_bots:    ["Cargo Pants","Joggers","Biker Shorts","Leggings","Cargo Pants"],
-  },
-  feminine: {
-    tier1_tops:    ["Milkmaid Top","Smocked Top","Bow Top","Off-Shoulder Top","Sweetheart Neck Top","Halter Top","Tiered Ruffle Top","Wrap Top","Blouse","Peplum Top","Cami"],
-    tier1_bots:    ["Floral Skirt","Midi Skirt","Maxi Skirt","A-Line Skirt","Wrap Skirt","Pleated Skirt","Satin Skirt"],
-    tier2_tops:    ["Crop Top","Knit Top","Bodysuit","Tube Top","Tank Top","Cowl Neck Top","Draped Top"],
-    tier2_bots:    ["Mini Skirt","Denim Skirt","Jeans Skinny","Jeans Mom","Jeans Flare","Palazzo Pants"],
-    tier3_tops:    ["T-Shirt","Oxford Shirt","Linen Shirt","Turtleneck","Button-Down"],
-    tier3_bots:    ["Jeans Straight","Jeans Wide Leg","Jeans Boyfriend","Trousers","Wide-Leg Trousers","Leggings"],
-    clash_tops:    ["Graphic Tee","Hoodie","Sweatshirt","Polo Shirt","Asymmetric Top"],
-    clash_bots:    ["Cargo Pants","Joggers","Biker Shorts","Shorts","Denim Shorts"],
-  },
-  edgy: {
-    tier1_tops:    ["Corset Top","Bustier","Bralette","Asymmetric Top","Tube Top","Graphic Tee","Sequin Top"],
-    tier1_bots:    ["Leather Skirt","Cargo Pants","Biker Shorts","Mini Skirt","Jeans Skinny","Jeans Boyfriend"],
-    tier2_tops:    ["Crop Top","Cami","Halter Top","Hoodie","Sweatshirt","Off-Shoulder Top"],
-    tier2_bots:    ["Jeans Straight","Jeans Wide Leg","Jeans Flare","Denim Shorts","Shorts","Skort"],
-    tier3_tops:    ["T-Shirt","Tank Top","Knit Top","Wrap Top","Bodysuit"],
-    tier3_bots:    ["Midi Skirt","A-Line Skirt","Palazzo Pants","Joggers","Leggings"],
-    clash_tops:    ["Blouse","Silk Blouse","Peplum Top","Bow Top","Milkmaid Top","Oxford Shirt","Linen Shirt"],
-    clash_bots:    ["Trousers","Wide-Leg Trousers","Maxi Skirt","Floral Skirt","Satin Skirt"],
-  },
-  ethnic: {
-    tier1_tops:    ["Ethnic Kurti","Ethnic Blouse","Salwar Kameez Top","Halter Top"],
-    tier1_bots:    ["Ethnic Salwar","Ethnic Dhoti Pant","Churidar","Sharara","Co-ord Bottom"],
-    tier2_tops:    ["Wrap Top","Cowl Neck Top","Smocked Top","Tiered Ruffle Top","Blouse","Off-Shoulder Top","Corset Top"],
-    tier2_bots:    ["Palazzo Pants","Maxi Skirt","Floral Skirt","Lehenga","Wide-Leg Trousers"],
-    tier3_tops:    ["Cami","Tank Top","Peplum Top","Bodysuit","Crop Top"],
-    tier3_bots:    ["Jeans Straight","Midi Skirt","A-Line Skirt","Wrap Skirt","Joggers","Cargo Pants"],
-    clash_tops:    ["Graphic Tee","Hoodie","Sweatshirt","Polo Shirt","T-Shirt","Oxford Shirt","Linen Shirt"],
-    clash_bots:    ["Biker Shorts","Leather Skirt","Denim Shorts","Shorts","Leggings","Jeans Skinny"],
-  },
+// MATERIAL KEYWORDS → automatic bucket boosts
+// If an item's material matches these, scores are boosted/overridden
+const MATERIAL_BOOSTS = {
+  // Glamour materials → party + date_night
+  "Sequin / Embellished": {party:1.0, date_night:1.0, office:0.0, casual:0.0, summer_picnic:0.0, streetwear:0.3, minimalist:0.0},
+  "Satin":                {party:0.9, date_night:0.95, feminine:0.9, office:0.5, casual:0.2},
+  "Silk":                 {party:0.85, date_night:0.9, feminine:0.9, office:0.7, casual:0.2},
+  "Velvet":               {party:0.9, date_night:0.9, feminine:0.8, office:0.4, casual:0.1},
+  "Lace":                 {party:0.7, date_night:0.8, feminine:1.0, casual:0.3, office:0.2},
+  // Casual materials
+  "Denim":                {casual:1.0, streetwear:0.9, coffee_date:0.8, office:0.3, party:0.4},
+  "Jersey":               {casual:0.9, streetwear:0.8, summer_picnic:0.9, party:0.2},
+  "Fleece":               {casual:0.9, streetwear:0.8, party:0.0, office:0.0},
+  "Spandex":              {casual:0.7, streetwear:0.8, party:0.3, office:0.0},
+  "Mesh":                 {party:0.7, streetwear:0.8, edgy:0.9, office:0.0, casual:0.3},
+  // Work materials
+  "Tweed":                {office:0.9, minimalist:0.8, party:0.3, casual:0.2},
+  "Wool":                 {office:0.8, minimalist:0.9, casual:0.5, party:0.3},
+  "Brocade":              {ethnic:1.0, party:0.8, office:0.4, casual:0.1},
+  "Embroidered":          {ethnic:0.9, party:0.7, feminine:0.7},
+  // Leather
+  "Leather":              {edgy:1.0, party:0.8, date_night:0.8, streetwear:0.9, casual:0.5, office:0.2, ethnic:0.0},
+  "Faux Leather":         {edgy:0.95, party:0.8, date_night:0.8, streetwear:0.9, casual:0.5, office:0.1, ethnic:0.0},
 };
 
-// ─── MATERIAL → OCCASION BOOSTS ─────────────────────────────
-// If item's MATERIAL matches, boost final score
-const MATERIAL_OCCASION_BOOST = {
-  "Sequin / Embellished": { party:18, date_night:12, edgy:8, office:-20, casual:-15, summer_picnic:-10 },
-  "Satin":               { party:12, date_night:14, feminine:8, office:5 },
-  "Silk":                { party:10, date_night:12, feminine:8, office:8 },
-  "Velvet":              { party:10, date_night:8,  feminine:6, edgy:4 },
-  "Lace":                { party:8,  date_night:10, feminine:12 },
-  "Leather":             { edgy:14,  party:8, date_night:8, ethnic:-15, office:-8 },
-  "Faux Leather":        { edgy:12,  party:6, date_night:6, ethnic:-12 },
-  "Mesh":                { party:6,  edgy:10, streetwear:8, office:-15 },
-  "Denim":               { casual:8, streetwear:6, coffee_date:5 },
-  "Linen":               { summer_picnic:10, casual:6, minimalist:6, party:-8 },
-  "Fleece":              { casual:8, streetwear:6, party:-12 },
-  "Spandex":             { casual:4, streetwear:6, party:-8, office:-15 },
-  "Tweed":               { office:8, minimalist:6 },
-  "Brocade":             { ethnic:12, party:6 },
-  "Embroidered":         { ethnic:10, party:5, feminine:5 },
-  "Cotton":              { casual:6, summer_picnic:5 },
-  "Jersey":              { casual:5, streetwear:4 },
+// SUBTYPE NAME KEYWORD → automatic bucket boosts
+// These override/boost scores when the subtype name contains these words
+const SUBTYPE_KEYWORD_BOOSTS = {
+  "ethnic":    {ethnic:1.0, office:0.4, party:0.6, casual:0.6, streetwear:0.0},
+  "kurti":     {ethnic:1.0, casual:0.7, office:0.5, streetwear:0.0},
+  "salwar":    {ethnic:1.0, casual:0.5, streetwear:0.0, party:0.5},
+  "anarkali":  {ethnic:1.0, party:0.8, date_night:0.7, casual:0.2, streetwear:0.0},
+  "lehenga":   {ethnic:1.0, party:1.0, date_night:0.9, office:0.0, casual:0.0, streetwear:0.0},
+  "saree":     {ethnic:1.0, party:0.8, date_night:0.7, office:0.3, casual:0.1, streetwear:0.0},
+  "sharara":   {ethnic:1.0, party:0.9, date_night:0.8, casual:0.3, streetwear:0.0},
+  "sequin":    {party:1.0, date_night:1.0, office:0.0, casual:0.0, summer_picnic:0.0},
+  "bodycon":   {party:0.95, date_night:0.95, casual:0.2, office:0.1},
+  "blazer":    {office:1.0, party:0.6, minimalist:0.9, casual:0.5},
+  "cargo":     {streetwear:1.0, casual:0.9, party:0.1, office:0.0},
+  "hoodie":    {streetwear:0.9, casual:1.0, party:0.0, office:0.0, date_night:0.0},
+  "joggers":   {casual:1.0, streetwear:0.9, party:0.0, office:0.0},
+  "legging":   {casual:0.8, streetwear:0.7, party:0.1, office:0.0},
+  "sweatshirt":{casual:1.0, streetwear:0.9, party:0.0, office:0.0},
+  "mermaid":   {party:1.0, date_night:0.9, ethnic:0.6, casual:0.0},
+  "gown":      {party:1.0, date_night:0.9, ethnic:0.7, casual:0.0, office:0.0},
+  "tutu":      {party:0.9, date_night:0.8, feminine:1.0, casual:0.2},
+  "maxi":      {summer_picnic:0.9, casual:0.8, ethnic:0.3, party:0.4},
+  "mini":      {party:0.8, date_night:0.8, casual:0.7, summer_picnic:0.7, office:0.1},
+  "midi":      {office:0.7, feminine:0.9, coffee_date:0.9, casual:0.7, party:0.5},
+  "corset":    {party:1.0, date_night:1.0, edgy:0.9, casual:0.1, office:0.0},
+  "bustier":   {party:1.0, date_night:1.0, edgy:0.8, casual:0.1, office:0.0},
+  "bralette":  {party:0.7, summer_picnic:0.8, streetwear:0.8, casual:0.4, office:0.0},
+  "slip":      {party:0.8, date_night:0.9, feminine:0.9, casual:0.3, office:0.1},
+  "floral":    {summer_picnic:1.0, feminine:0.9, coffee_date:0.9, casual:0.8, party:0.5},
+  "linen":     {summer_picnic:1.0, casual:0.9, minimalist:0.8, party:0.2},
+  "trench":    {office:1.0, minimalist:1.0, coffee_date:0.8, casual:0.7},
+  "varsity":   {streetwear:1.0, casual:0.8, party:0.3, office:0.0},
+  "bomber":    {streetwear:0.9, casual:0.8, party:0.4, office:0.0},
+  "puffer":    {casual:0.8, streetwear:0.7, party:0.1, office:0.0},
+  "wrap":      {feminine:0.9, coffee_date:0.9, casual:0.7, office:0.5},
+  "peplum":    {office:0.7, feminine:0.9, coffee_date:0.8, party:0.5},
+  "pencil":    {office:1.0, minimalist:0.9, date_night:0.6, party:0.4},
+  "palazzo":   {casual:0.7, summer_picnic:0.7, ethnic:0.4, office:0.5},
+  "dhoti":     {ethnic:1.0, streetwear:0.0, party:0.6, casual:0.3},
+  "garara":    {ethnic:1.0, party:0.9, date_night:0.8, casual:0.2, streetwear:0.0},
+  "churidar":  {ethnic:1.0, casual:0.4, party:0.5, streetwear:0.0},
+  "plazo":     {ethnic:0.3, casual:0.8, summer_picnic:0.7},
 };
 
-// ─── MATERIAL COMPATIBILITY (for material score component) ───
-const MATERIAL_COMPAT = [
-  [["Sequin / Embellished","Satin","Silk","Velvet","Lace"],["Satin","Silk","Lace","Mesh"],15],
-  [["Leather","Faux Leather"],["Cotton","Linen","Jersey","Denim"],12],
-  [["Denim"],["Cotton","Jersey","Linen"],10],
+const ALL_BUCKETS_LIST = ['office','party','casual','coffee_date','date_night','summer_picnic','streetwear','minimalist','feminine','edgy','ethnic'];
+
+// Base neutral score per bucket (if no specific info)
+const BASE_BUCKET_SCORE = {
+  office:0.3, party:0.5, casual:0.7, coffee_date:0.6, date_night:0.4,
+  summer_picnic:0.5, streetwear:0.4, minimalist:0.6, feminine:0.5, edgy:0.3, ethnic:0.3
+};
+
+function getSubtypeEligibility(subtype, bucketId) {
+  if (!subtype) return 0.5;
+  const lower = subtype.toLowerCase();
+  
+  // Check keyword boosts first (highest priority - most specific)
+  for (const [kw, scores] of Object.entries(SUBTYPE_KEYWORD_BOOSTS)) {
+    if (lower.includes(kw)) {
+      if (kw === 'ethnic' && lower.includes('ethnic')) {
+        // Hard block ethnic items from streetwear
+        if (bucketId === 'streetwear') return 0;
+      }
+      if (scores[bucketId] !== undefined) return scores[bucketId];
+    }
+  }
+  
+  // Fallback: use BASE scores by category inference
+  // Tops: generally versatile
+  if (['t-shirt','graphic tee','crop top','tank top','cami','tube top'].includes(lower)) {
+    return {office:0.1,party:0.5,casual:0.95,coffee_date:0.6,date_night:0.3,summer_picnic:0.9,streetwear:0.85,minimalist:0.7,feminine:0.4,edgy:0.5,ethnic:0}[bucketId] ?? 0.5;
+  }
+  if (['blouse','wrap top','peplum top','sweetheart neck top','cowl neck top'].some(s=>lower.includes(s.split(' ')[0]))) {
+    return {office:0.8,party:0.6,casual:0.6,coffee_date:0.9,date_night:0.7,summer_picnic:0.5,streetwear:0.1,minimalist:0.7,feminine:0.95,edgy:0.1,ethnic:0}[bucketId] ?? 0.5;
+  }
+  
+  return BASE_BUCKET_SCORE[bucketId] ?? 0.5;
+}
+
+// Get material boost for a specific item+bucket
+function getMaterialBoost(item, bucketId) {
+  if (!item || !item.material) return 1.0;
+  const matBoost = MATERIAL_BOOSTS[item.material];
+  if (!matBoost) return 1.0;
+  if (matBoost[bucketId] !== undefined) {
+    // Return as multiplier: 0=blocked, 1=no change, >1=boost
+    return matBoost[bucketId] === 0 ? 0 : (0.5 + matBoost[bucketId] * 0.8);
+  }
+  return 1.0;
+}
+
+// ═══════════════════════════════════════════════════════════
+// MATERIAL THICKNESS INDEX (for layering logic)
+// ═══════════════════════════════════════════════════════════
+const THICKNESS = {Cotton:3,Linen:3,Denim:5,Jersey:3,"Ribbed Knit":5,"Chunky Knit":7,Satin:2,Silk:2,Chiffon:1,Georgette:1,Organza:1,Velvet:6,Leather:6,"Faux Leather":5,Suede:5,Wool:7,Cashmere:6,Fleece:6,Polyester:3,Mesh:1,Lace:2,Crochet:4,"Sequin / Embellished":3,Embroidered:3,Brocade:5,Tweed:7,Canvas:5,Spandex:2};
+
+// ═══════════════════════════════════════════════════════════
+// MATERIAL COMPATIBILITY MATRIX
+// ═══════════════════════════════════════════════════════════
+const MATERIAL_PAIRS = [
+  [["Leather","Faux Leather"],["Satin","Silk"],15],
+  [["Leather","Faux Leather"],["Cotton","Linen","Jersey"],12],
+  [["Denim"],["Cotton","Linen","Jersey","Crochet"],12],
+  [["Tweed"],["Silk","Satin"],12],
+  [["Chunky Knit"],["Denim","Leather"],10],
+  [["Chiffon","Georgette"],["Satin","Silk","Lace"],10],
   [["Velvet"],["Satin","Silk","Lace"],12],
-  [["Brocade","Embroidered"],["Silk","Satin","Chiffon"],10],
-  [["Sequin / Embellished"],["Fleece","Chunky Knit"],-15],
-  [["Mesh"],["Sequin / Embellished","Leather"],8],
+  [["Brocade"],["Silk","Satin","Chiffon"],10],
+  [["Embroidered"],["Silk","Chiffon","Cotton"],8],
+  [["Sequin / Embellished"],["Fleece","Chunky Knit","Denim"],-15],
+  [["Mesh"],["Sequin / Embellished","Leather","Faux Leather"],8],
 ];
-
-function getMaterialCompat(m1, m2) {
-  if (!m1 || !m2) return 7;
-  for (const [g1,g2,pts] of MATERIAL_COMPAT) {
+function getMaterialScore(m1, m2) {
+  if (!m1 || !m2) return 8;
+  for (const [g1, g2, pts] of MATERIAL_PAIRS) {
     if ((g1.includes(m1)&&g2.includes(m2))||(g1.includes(m2)&&g2.includes(m1))) return pts;
   }
   if (m1===m2) return 6;
   return 7;
 }
 
-// ─── SILHOUETTE HARMONY ──────────────────────────────────────
-const SIL_SCORES = {
-  "Oversized":       { "Fitted / Slim":20,"Bodycon / Tight":20,"Regular / Classic":16,"A-Line / Flared":18, default:10 },
-  "Boxy":            { "Fitted / Slim":16,"Bodycon / Tight":15,"Regular / Classic":12, default:10 },
-  "Fitted / Slim":   { "Flowy / Loose":20,"A-Line / Flared":20,"Oversized":18,"Regular / Classic":14, default:10 },
-  "Cropped":         { "Flowy / Loose":20,"A-Line / Flared":20,"Regular / Classic":16,"Oversized":18, default:10 },
-  "Flowy / Loose":   { "Fitted / Slim":20,"Regular / Classic":16,"Structured":15, default:10 },
-  "Structured":      { "Flowy / Loose":20,"Regular / Classic":15,"Fitted / Slim":14, default:10 },
-  "Regular / Classic":{ "Regular / Classic":14,"Fitted / Slim":16,"Flowy / Loose":16,"A-Line / Flared":16, default:14 },
-  "Bodycon / Tight": { "Oversized":18,"Relaxed":15, default:8 },
-  "Longline":        { default:12 },
-  "A-Line / Flared": { default:12 },
+// ═══════════════════════════════════════════════════════════
+// BUCKET ANCHOR ITEMS (give +10 bonus)
+// ═══════════════════════════════════════════════════════════
+const BUCKET_ANCHORS = {
+  office:["Blazer","Oversized Blazer","Trench Coat","Wool Coat","Trousers","Wide-Leg Trousers","Pencil Skirt","Bodysuit","Oxford Shirt","Button-Down","Blazer Dress"],
+  party:["Sequin Dress","Corset Top","Bustier","Bodycon Dress","Satin Skirt","Mini Dress","Tube Top","Mermaid Gown","Slip Dress"],
+  casual:["T-Shirt","Jeans (Straight)","Jeans (Wide Leg)","Denim Jacket","Shirt","Linen Shirt"],
+  coffee_date:["Wrap Dress","Midi Dress","Wrap Top","Knit Top","Midi Skirt","A-Line Skirt","Cardigan"],
+  date_night:["Slip Dress","Bodycon Dress","Corset Top","Leather Skirt","Satin Skirt","Leather Jacket","Mermaid Gown"],
+  summer_picnic:["Floral Dress","Sundress","Romper","Linen Shirt","Shorts","Denim Shorts","Floral Skirt","Maxi Dress"],
+  streetwear:["Cargo Pants","Hoodie","Graphic Tee","Bomber Jacket","Leather Jacket","Biker Shorts","Varsity Jacket","Chunky Sneakers"],
+  minimalist:["Trench Coat","Turtleneck","Wide-Leg Trousers","Blazer Dress","Knit Dress","Slip Dress"],
+  feminine:["Floral Dress","Midi Dress","Wrap Dress","Off-Shoulder Top","Wrap Top","Midi Skirt","Floral Skirt","A-Line Skirt","Baby Doll Dress"],
+  edgy:["Leather Jacket","Faux Leather Jacket","Corset Top","Leather Skirt","Bustier","Combat Boots","Bralette"],
+  ethnic:["Ethnic Kurti","Ethnic Blouse","Salwar Kameez Top","Anarkali","Lehenga","Saree","Sharara Set","Ethnic Salwar Suit","Ethnic Salwar","Sharara","Churidar","Ethnic Dhoti Pant","Jhumkas","Chandbalis"],
 };
-function getSilScore(t,b){
-  if(!t||!b) return 12;
-  const row=SIL_SCORES[t]; if(!row) return 12;
-  return row[b]??row.default??12;
+
+
+// ═══════════════════════════════════════════════════════════
+// DATASET COMBO PRIORITIES (from 242,000 outfit combinations)
+// Built from 2024-2025-2026 trend datasets
+// Format: COMBO_PRIORITY["Top|Bottom"][bucketId] = 0-1 priority score
+// ═══════════════════════════════════════════════════════════
+const COMBO_PRIORITY = {"Salwar Kameez Top|Leather Skirt":{"summer_picnic":1.0},"Sweater|Jeans Skinny":{"summer_picnic":0.9},"Button-Down|Pants":{"summer_picnic":0.825},"Off-Shoulder Top|Jeans Wide Leg":{"summer_picnic":0.8,"casual":0.836,"minimalist":0.8,"coffee_date":0.711},"Halter Top|Palazzo Pants":{"summer_picnic":0.8,"ethnic":0.794,"minimalist":0.85},"Knit Top|Jeans Wide Leg":{"summer_picnic":0.8},"Ethnic Blouse|Jeans Mom":{"summer_picnic":0.775,"ethnic":0.794},"Wrap Top|Shorts":{"summer_picnic":0.775},"Cowl Neck Top|Sharara":{"summer_picnic":0.775,"office":0.711},"Tie Waist Top|Floral Skirt":{"summer_picnic":0.775,"coffee_date":0.816},"Tank Top|Jeans Wide Leg":{"summer_picnic":0.775},"Halter Top|Churidar":{"summer_picnic":0.775},"Cami|A-Line Skirt":{"summer_picnic":0.75,"casual":0.803},"Ethnic Kurti|Co-ord Bottom":{"summer_picnic":0.75},"Cardigan|Pleated Skirt":{"summer_picnic":0.75},"Knit Top|Denim Skirt":{"summer_picnic":0.75},"Cardigan|Jeans Boyfriend":{"summer_picnic":0.75},"Tiered Ruffle Top|Jeans Wide Leg":{"summer_picnic":0.75,"streetwear":0.718},"Ethnic Blouse|Palazzo Pants":{"summer_picnic":0.75,"streetwear":0.744},"Hoodie|Trousers":{"summer_picnic":0.75,"ethnic":0.824},"Tank Top|Ethnic Dhoti Pant":{"summer_picnic":0.75},"Square Neck Top|A-Line Skirt":{"summer_picnic":0.75,"coffee_date":0.789},"Ethnic Kurti|Shorts":{"summer_picnic":0.75},"Tank Top|Jeans Flare":{"summer_picnic":0.725},"Smocked Top|Wide-Leg Trousers":{"summer_picnic":0.725,"ethnic":0.824},"Asymmetric Top|Pleated Skirt":{"summer_picnic":0.725},"Wrap Top|Jeans Flare":{"summer_picnic":0.725},"Cold Shoulder Top|Trousers":{"summer_picnic":0.725,"office":0.737,"party":0.682},"Sweater|Satin Skirt":{"summer_picnic":0.725,"streetwear":0.744},"Sweatshirt|Wide-Leg Trousers":{"summer_picnic":0.725},"Smocked Top|Jeans Flare":{"summer_picnic":0.7},"Bodysuit|Churidar":{"summer_picnic":0.7},"Button-Down|Denim Skirt":{"summer_picnic":0.7,"minimalist":0.9},"Button-Down|Leggings":{"summer_picnic":0.7},"Ethnic Kurti|Denim Shorts":{"summer_picnic":0.7,"casual":0.869},"Linen Shirt|Mini Skirt":{"summer_picnic":0.7},"Corset Top|Palazzo Pants":{"summer_picnic":0.7},"Tank Top|Skort":{"summer_picnic":0.7,"streetwear":0.821},"Button-Down|Floral Skirt":{"summer_picnic":0.7,"date_night":0.762},"Pullover|Ethnic Salwar":{"summer_picnic":0.7},"Turtleneck|Jeans Boyfriend":{"summer_picnic":0.7},"Peplum Top|Wrap Skirt":{"summer_picnic":0.7},"Off-Shoulder Top|Leather Skirt":{"summer_picnic":0.7},"Tie Waist Top|Biker Shorts":{"summer_picnic":0.7,"coffee_date":0.842},"Peplum Top|Cargo Pants":{"summer_picnic":0.7,"office":0.684},"Co-ord Top|Pleated Skirt":{"summer_picnic":0.7},"Square Neck Top|Mini Skirt":{"summer_picnic":0.7},"Draped Top|Ethnic Dhoti Pant":{"summer_picnic":0.7},"Sweater|Jeans Wide Leg":{"summer_picnic":0.7,"casual":0.836,"party":0.727},"Square Neck Top|Midi Skirt":{"summer_picnic":0.7,"coffee_date":1.0},"Knot Front Top|Jeans Mom":{"summer_picnic":0.7,"ethnic":0.765,"minimalist":0.8},"Button-Down|Satin Skirt":{"summer_picnic":0.7},"Peplum Top|Denim Shorts":{"summer_picnic":0.7},"Shirt|Shorts":{"summer_picnic":0.7},"Polo Shirt|Churidar":{"summer_picnic":0.7,"streetwear":0.718,"date_night":0.714},"Cowl Neck Top|Biker Shorts":{"summer_picnic":0.7},"Peplum Top|Midi Skirt":{"summer_picnic":0.7},"Corset Top|Ethnic Dhoti Pant":{"summer_picnic":0.7},"Asymmetric Top|Biker Shorts":{"summer_picnic":0.7},"Button-Down|Leather Skirt":{"summer_picnic":0.7,"ethnic":0.882},"Sweater|Pleated Skirt":{"summer_picnic":0.675,"coffee_date":0.711},"Square Neck Top|Leather Skirt":{"summer_picnic":0.675,"date_night":0.714},"Cold Shoulder Top|Jeans Wide Leg":{"summer_picnic":0.675,"streetwear":0.692},"Sweetheart Top|Maxi Skirt":{"summer_picnic":0.675,"date_night":0.762},"Shirt|Biker Shorts":{"summer_picnic":0.675},"Crop Top|Maxi Skirt":{"summer_picnic":0.675},"Bustier|Leather Skirt":{"summer_picnic":0.675},"Smocked Top|Joggers":{"summer_picnic":0.675,"date_night":0.714,"casual":0.787},"Sweetheart Top|Denim Shorts":{"summer_picnic":0.675,"party":0.682},"Salwar Kameez Top|A-Line Skirt":{"summer_picnic":0.675},"Linen Shirt|Maxi Skirt":{"summer_picnic":0.675},"Bralette|Denim Skirt":{"summer_picnic":0.675},"Knitted Sweater Off Shoulder|Mini Skirt":{"summer_picnic":0.675,"date_night":0.81},"Oxford Shirt|Palazzo Pants":{"summer_picnic":0.675},"Button-Down|Jeans Flare":{"summer_picnic":0.675,"office":0.763},"Bustier|Biker Shorts":{"summer_picnic":0.675},"Ethnic Blouse|Pencil Skirt":{"summer_picnic":0.675,"ethnic":0.794},"Polo Shirt|Pencil Skirt":{"summer_picnic":0.675},"Linen Shirt|Palazzo Pants":{"summer_picnic":0.675,"date_night":0.762},"Bodysuit|Shorts":{"summer_picnic":0.675},"Pullover|A-Line Skirt":{"summer_picnic":0.675},"Sweatshirt|Satin Skirt":{"summer_picnic":0.675},"Polo Shirt|Jeans Straight":{"summer_picnic":0.675,"streetwear":0.769,"minimalist":0.75},"Cami|Wide-Leg Trousers":{"summer_picnic":0.675},"Crop Top|Denim Skirt":{"summer_picnic":0.675},"Oxford Shirt|Pencil Skirt":{"summer_picnic":0.675},"Button-Down|Sharara":{"summer_picnic":0.675},"Pullover|Leather Skirt":{"summer_picnic":0.675},"Asymmetric Top|Leggings":{"summer_picnic":0.675},"Smocked Top|Mini Skirt":{"summer_picnic":0.675,"date_night":0.762},"Bustier|Shorts":{"summer_picnic":0.675,"streetwear":0.744,"ethnic":0.853},"Cardigan|Denim Shorts":{"summer_picnic":0.675},"Tube Top|Mini Skirt":{"summer_picnic":0.675,"streetwear":0.692},"Sweetheart Top|Trousers":{"summer_picnic":0.675},"Pullover|Floral Skirt":{"summer_picnic":0.675,"coffee_date":0.763},"Bralette|Ethnic Dhoti Pant":{"summer_picnic":0.65,"casual":0.852},"Co-ord Top|Ethnic Salwar":{"summer_picnic":0.65},"Knot Front Top|A-Line Skirt":{"summer_picnic":0.65},"Sweetheart Top|Wrap Skirt":{"summer_picnic":0.65,"casual":0.803},"Tie Waist Top|Leggings":{"summer_picnic":0.65},"Cami|Leggings":{"streetwear":1.0},"Tank Top|Cargo Pants":{"streetwear":0.897,"minimalist":0.9},"Salwar Kameez Top|Co-ord Bottom":{"streetwear":0.872,"date_night":0.714},"Asymmetric Top|Mini Skirt":{"streetwear":0.846},"Draped Top|Jeans Boyfriend":{"streetwear":0.846,"office":0.763},"Oxford Shirt|Ethnic Dhoti Pant":{"streetwear":0.821,"party":0.682},"Cardigan|Co-ord Bottom":{"streetwear":0.821},"Milkmaid Top|Wrap Skirt":{"streetwear":0.821,"ethnic":0.794,"minimalist":0.85},"Knitted Sweater Off Shoulder|Churidar":{"streetwear":0.821,"coffee_date":0.711},"Polo Shirt|Jeans Skinny":{"streetwear":0.821},"Cowl Neck Top|Satin Skirt":{"streetwear":0.795},"Tiered Ruffle Top|Joggers":{"streetwear":0.795},"Button-Down|Palazzo Pants":{"streetwear":0.795,"office":0.974},"Pullover|Jeans Boyfriend":{"streetwear":0.795,"coffee_date":0.711},"Crop Top|Floral Skirt":{"streetwear":0.795,"ethnic":0.853},"Bow Top|Pants":{"streetwear":0.795},"Bow Top|Jeans Straight":{"streetwear":0.769},"Sweatshirt|Jeans Wide Leg":{"streetwear":0.769,"minimalist":0.9,"coffee_date":0.763},"Square Neck Top|Ethnic Salwar":{"streetwear":0.769},"Salwar Kameez Top|Jeans Boyfriend":{"streetwear":0.769,"casual":0.852},"Co-ord Top|Jeans Wide Leg":{"streetwear":0.769},"Knit Top|Maxi Skirt":{"streetwear":0.769},"Tube Top|Sharara":{"streetwear":0.769},"Blouse|Biker Shorts":{"streetwear":0.769},"Halter Top|Denim Skirt":{"streetwear":0.769,"ethnic":0.824},"Knitted Sweater Off Shoulder|Jeans Mom":{"streetwear":0.769,"ethnic":0.794},"Cold Shoulder Top|Biker Shorts":{"streetwear":0.744},"Blouse|Skort":{"streetwear":0.744,"party":0.727},"Knitted Sweater Off Shoulder|Jeans Flare":{"streetwear":0.744},"Cardigan|Biker Shorts":{"streetwear":0.744},"Asymmetric Top|Joggers":{"streetwear":0.744},"Wrap Top|Co-ord Bottom":{"streetwear":0.744,"date_night":0.762,"coffee_date":0.763},"Hoodie|Mini Skirt":{"streetwear":0.744,"ethnic":0.853},"Cowl Neck Top|Palazzo Pants":{"streetwear":0.744,"ethnic":0.882},"Turtleneck|Wide-Leg Trousers":{"streetwear":0.744},"Knitted Sweater Off Shoulder|Palazzo Pants":{"streetwear":0.744},"Smocked Top|Palazzo Pants":{"streetwear":0.744,"date_night":0.905},"Tiered Ruffle Top|Mini Skirt":{"streetwear":0.744},"Tank Top|Wide-Leg Trousers":{"streetwear":0.744},"Tank Top|Denim Skirt":{"streetwear":0.744,"office":0.763,"coffee_date":0.816},"Turtleneck|Skort":{"streetwear":0.744,"coffee_date":0.711},"Cardigan|Palazzo Pants":{"streetwear":0.744},"Tank Top|Jeans Skinny":{"streetwear":0.718,"date_night":0.762},"Bralette|Trousers":{"streetwear":0.718},"Bodysuit|Joggers":{"streetwear":0.718,"ethnic":0.794},"Milkmaid Top|Co-ord Bottom":{"streetwear":0.718},"Cami|Jeans Skinny":{"streetwear":0.718},"Tie Waist Top|Jeans Boyfriend":{"streetwear":0.718},"Oxford Shirt|A-Line Skirt":{"streetwear":0.718},"Bralette|Palazzo Pants":{"streetwear":0.718},"Bralette|Jeans Mom":{"streetwear":0.718,"office":0.711},"Tube Top|Ethnic Dhoti Pant":{"streetwear":0.718,"party":0.864},"Knit Top|Satin Skirt":{"streetwear":0.718,"party":0.727},"Corset Top|Wide-Leg Trousers":{"streetwear":0.718,"casual":0.885},"Cold Shoulder Top|Leather Skirt":{"streetwear":0.718},"Knot Front Top|Floral Skirt":{"streetwear":0.718,"minimalist":0.85},"Salwar Kameez Top|Joggers":{"streetwear":0.718},"Knit Top|Leather Skirt":{"streetwear":0.718,"ethnic":0.912},"Sweater|Churidar":{"streetwear":0.718},"T-Shirt|Jeans Wide Leg":{"streetwear":0.718},"Asymmetric Top|Palazzo Pants":{"streetwear":0.718,"ethnic":0.794},"Bralette|Jeans Wide Leg":{"streetwear":0.718},"Draped Top|Cargo Pants":{"streetwear":0.718,"party":0.682},"Off-Shoulder Top|Satin Skirt":{"streetwear":0.718},"Corset Top|Floral Skirt":{"streetwear":0.718},"Graphic Tee|Denim Shorts":{"streetwear":0.718,"date_night":0.857},"Sweatshirt|Pants":{"streetwear":0.718},"Halter Top|Pencil Skirt":{"streetwear":0.692,"office":0.789},"Tank Top|A-Line Skirt":{"streetwear":0.692},"Bralette|Joggers":{"streetwear":0.692,"date_night":0.714,"party":0.727},"Halter Top|Joggers":{"streetwear":0.692,"minimalist":0.95},"T-Shirt|Cargo Pants":{"streetwear":0.692},"Bow Top|Joggers":{"streetwear":0.692,"minimalist":0.85},"Co-ord Top|Trousers":{"streetwear":0.692},"Turtleneck|Jeans Wide Leg":{"streetwear":0.692},"Cami|Denim Skirt":{"streetwear":0.692},"Bustier|Jeans Skinny":{"streetwear":0.692},"Halter Top|Sharara":{"streetwear":0.692},"Milkmaid Top|Midi Skirt":{"streetwear":0.692,"casual":0.803},"Knit Top|Co-ord Bottom":{"streetwear":0.692},"Bustier|A-Line Skirt":{"streetwear":0.692,"coffee_date":0.711},"Pullover|Churidar":{"streetwear":0.692},"Sweatshirt|Midi Skirt":{"streetwear":0.692},"Blouse|Wrap Skirt":{"streetwear":0.692},"Tank Top|Jeans Straight":{"streetwear":0.692},"Blouse|Jeans Skinny":{"streetwear":0.692},"Milkmaid Top|Shorts":{"streetwear":0.692},"Oxford Shirt|Jeans Straight":{"streetwear":0.692},"Salwar Kameez Top|Denim Skirt":{"streetwear":0.692},"Bow Top|Cargo Pants":{"streetwear":0.692},"Draped Top|Midi Skirt":{"streetwear":0.692},"Cami|Pleated Skirt":{"office":1.0},"Button-Down|Joggers":{"office":0.947,"date_night":0.857},"Graphic Tee|Pleated Skirt":{"office":0.895},"Turtleneck|Satin Skirt":{"office":0.868,"party":0.727},"Square Neck Top|Jeans Skinny":{"office":0.868},"Bralette|Pleated Skirt":{"office":0.868},"Button-Down|Wide-Leg Trousers":{"office":0.868},"Cami|Floral Skirt":{"office":0.842},"Linen Shirt|Pants":{"office":0.842},"Shirt|Ethnic Salwar":{"office":0.842},"Tube Top|Ethnic Salwar":{"office":0.842,"casual":0.967,"party":0.727},"Peplum Top|Trousers":{"office":0.816},"Off-Shoulder Top|Denim Skirt":{"office":0.816,"minimalist":0.75},"Wrap Top|Biker Shorts":{"office":0.816,"date_night":0.762},"Smocked Top|Satin Skirt":{"office":0.816},"Tube Top|Cargo Pants":{"office":0.816,"date_night":0.762},"Bodysuit|Ethnic Dhoti Pant":{"office":0.789},"Oxford Shirt|Jeans Wide Leg":{"office":0.789},"Tiered Ruffle Top|Churidar":{"office":0.789},"Shirt|Midi Skirt":{"office":0.789,"casual":0.803},"Cold Shoulder Top|Denim Shorts":{"office":0.789},"Square Neck Top|Shorts":{"office":0.789},"Off-Shoulder Top|Biker Shorts":{"office":0.789},"Milkmaid Top|Biker Shorts":{"office":0.789,"date_night":0.714},"Off-Shoulder Top|A-Line Skirt":{"office":0.763},"T-Shirt|Jeans Boyfriend":{"office":0.763},"Linen Shirt|Leggings":{"office":0.763},"Ethnic Kurti|Midi Skirt":{"office":0.763},"Asymmetric Top|Churidar":{"office":0.763},"Tie Waist Top|Satin Skirt":{"office":0.763},"Button-Down|Co-ord Bottom":{"office":0.763},"Bodysuit|Maxi Skirt":{"office":0.763},"Tank Top|Leggings":{"office":0.763},"Ethnic Kurti|Denim Skirt":{"office":0.763},"Tank Top|Trousers":{"office":0.763,"party":0.818},"Ethnic Blouse|Joggers":{"office":0.763},"Oxford Shirt|Pleated Skirt":{"office":0.763},"Pullover|Biker Shorts":{"office":0.763},"Hoodie|A-Line Skirt":{"office":0.763,"casual":0.934},"Cardigan|Denim Skirt":{"office":0.763},"Bodysuit|Ethnic Salwar":{"office":0.763},"Cami|Sharara":{"office":0.763,"casual":0.836},"Ethnic Kurti|Jeans Flare":{"office":0.763,"date_night":0.714,"coffee_date":0.737},"Cami|Mini Skirt":{"office":0.737,"party":0.727},"Sweater|Biker Shorts":{"office":0.737},"Milkmaid Top|Leather Skirt":{"office":0.737},"Tiered Ruffle Top|Skort":{"office":0.737,"casual":0.869},"Pullover|Co-ord Bottom":{"office":0.737},"Sweatshirt|Palazzo Pants":{"office":0.737},"Cardigan|Leggings":{"office":0.737},"T-Shirt|Co-ord Bottom":{"office":0.737},"Sweatshirt|Shorts":{"office":0.737,"ethnic":0.941},"Turtleneck|Churidar":{"office":0.737},"Sweatshirt|Leggings":{"office":0.737,"ethnic":0.853},"Corset Top|Co-ord Bottom":{"office":0.737,"minimalist":0.8},"Turtleneck|Trousers":{"office":0.737},"Asymmetric Top|Sharara":{"office":0.711},"Square Neck Top|Leggings":{"office":0.711},"Knot Front Top|Denim Skirt":{"office":0.711},"Tube Top|Jeans Mom":{"office":0.711},"Button-Down|Pleated Skirt":{"office":0.711},"Polo Shirt|Skort":{"office":0.711},"Smocked Top|Floral Skirt":{"office":0.711},"Ethnic Kurti|Trousers":{"office":0.711,"date_night":0.905},"Sweetheart Top|Jeans Straight":{"office":0.711},"Tank Top|Midi Skirt":{"office":0.711,"date_night":0.714},"Pullover|Skort":{"office":0.711},"Square Neck Top|Jeans Wide Leg":{"office":0.711},"Draped Top|Denim Shorts":{"office":0.711},"Cowl Neck Top|Cargo Pants":{"office":0.711,"party":0.682},"Ethnic Kurti|Pleated Skirt":{"office":0.711},"Peplum Top|Shorts":{"office":0.711},"Pullover|Jeans Flare":{"office":0.711},"Shirt|Jeans Skinny":{"office":0.711,"ethnic":0.824},"Turtleneck|Joggers":{"office":0.711},"Milkmaid Top|Maxi Skirt":{"office":0.711},"Off-Shoulder Top|Shorts":{"office":0.711},"Sweater|Ethnic Salwar":{"office":0.711,"casual":0.82},"Tiered Ruffle Top|Jeans Mom":{"office":0.684,"date_night":0.952},"Corset Top|Mini Skirt":{"office":0.684},"Peplum Top|Pleated Skirt":{"office":0.684},"Peplum Top|Jeans Straight":{"office":0.684},"Tie Waist Top|Pencil Skirt":{"office":0.684},"Oxford Shirt|Satin Skirt":{"office":0.684,"coffee_date":0.789},"Bralette|Pants":{"office":0.684,"ethnic":0.794},"Cami|Satin Skirt":{"office":0.684},"Smocked Top|Jeans Wide Leg":{"office":0.684},"Tiered Ruffle Top|A-Line Skirt":{"office":0.684},"Knot Front Top|Midi Skirt":{"office":0.684,"casual":0.803},"Wrap Top|Churidar":{"office":0.684},"Milkmaid Top|Floral Skirt":{"office":0.684,"casual":0.984},"Pullover|Joggers":{"ethnic":1.0},"Peplum Top|Jeans Skinny":{"ethnic":0.971,"minimalist":0.95},"Salwar Kameez Top|Biker Shorts":{"ethnic":0.941},"Corset Top|Leggings":{"ethnic":0.941,"coffee_date":0.684},"Draped Top|Maxi Skirt":{"ethnic":0.912,"minimalist":0.75,"party":0.682},"Knot Front Top|Biker Shorts":{"ethnic":0.912},"Graphic Tee|Satin Skirt":{"ethnic":0.912},"Sweater|Pencil Skirt":{"ethnic":0.912},"Off-Shoulder Top|Denim Shorts":{"ethnic":0.912},"Co-ord Top|Denim Shorts":{"ethnic":0.912},"Ethnic Blouse|Maxi Skirt":{"ethnic":0.882,"date_night":0.81},"Off-Shoulder Top|Ethnic Salwar":{"ethnic":0.882},"Tiered Ruffle Top|Ethnic Dhoti Pant":{"ethnic":0.882,"minimalist":0.85},"Knitted Sweater Off Shoulder|Co-ord Bottom":{"ethnic":0.882},"T-Shirt|Maxi Skirt":{"ethnic":0.882},"Co-ord Top|Joggers":{"ethnic":0.882},"T-Shirt|Wide-Leg Trousers":{"ethnic":0.882},"Ethnic Kurti|Leggings":{"ethnic":0.853},"Polo Shirt|Jeans Wide Leg":{"ethnic":0.853},"Linen Shirt|Biker Shorts":{"ethnic":0.853,"casual":0.836,"minimalist":0.75},"T-Shirt|Wrap Skirt":{"ethnic":0.853},"T-Shirt|Jeans Skinny":{"ethnic":0.853},"Draped Top|Co-ord Bottom":{"ethnic":0.853,"casual":0.885},"Cardigan|Jeans Straight":{"ethnic":0.853,"date_night":0.81},"Wrap Top|Palazzo Pants":{"ethnic":0.853,"casual":0.885},"Hoodie|Jeans Mom":{"ethnic":0.853},"Off-Shoulder Top|Midi Skirt":{"ethnic":0.853,"date_night":0.81},"Linen Shirt|Trousers":{"ethnic":0.853,"minimalist":0.75},"Pullover|Cargo Pants":{"ethnic":0.853,"date_night":0.714,"casual":0.869},"Blouse|Maxi Skirt":{"ethnic":0.853,"casual":0.82,"party":0.727},"Corset Top|Jeans Straight":{"ethnic":0.853,"casual":0.984,"minimalist":0.8},"Oxford Shirt|Wrap Skirt":{"ethnic":0.853},"Knitted Sweater Off Shoulder|Denim Shorts":{"ethnic":0.853},"Cardigan|Trousers":{"ethnic":0.824},"Co-ord Top|Churidar":{"ethnic":0.824},"Cami|Trousers":{"ethnic":0.824},"Crop Top|Midi Skirt":{"ethnic":0.824,"date_night":0.952,"coffee_date":0.737},"Smocked Top|Co-ord Bottom":{"ethnic":0.824,"party":0.682},"Graphic Tee|Jeans Mom":{"ethnic":0.824},"Sweatshirt|Denim Skirt":{"ethnic":0.824,"date_night":0.762,"casual":0.869},"Wrap Top|Trousers":{"ethnic":0.824},"Hoodie|Wide-Leg Trousers":{"ethnic":0.824,"party":0.682},"Milkmaid Top|Sharara":{"ethnic":0.824,"casual":0.803},"Tank Top|Wrap Skirt":{"ethnic":0.824},"Milkmaid Top|Denim Shorts":{"ethnic":0.824},"Knit Top|Jeans Mom":{"ethnic":0.824,"coffee_date":0.763},"Sweetheart Top|Shorts":{"ethnic":0.824},"Cold Shoulder Top|Floral Skirt":{"ethnic":0.824},"Linen Shirt|Skort":{"ethnic":0.824,"minimalist":0.75},"Knot Front Top|Cargo Pants":{"ethnic":0.824},"Knit Top|Churidar":{"ethnic":0.824},"Crop Top|Jeans Mom":{"ethnic":0.824},"Salwar Kameez Top|Wrap Skirt":{"ethnic":0.824,"date_night":0.762},"Square Neck Top|Churidar":{"ethnic":0.824},"Square Neck Top|Floral Skirt":{"ethnic":0.824},"Graphic Tee|Palazzo Pants":{"ethnic":0.824},"Corset Top|Wrap Skirt":{"ethnic":0.794,"date_night":0.714,"minimalist":0.75},"Bodysuit|Co-ord Bottom":{"ethnic":0.794,"date_night":0.857},"Polo Shirt|Cargo Pants":{"ethnic":0.794},"Sweetheart Top|Satin Skirt":{"ethnic":0.794},"Bow Top|Trousers":{"ethnic":0.794,"casual":0.803,"minimalist":1.0},"Sweater|Trousers":{"ethnic":0.794},"Crop Top|Jeans Boyfriend":{"ethnic":0.794},"Cold Shoulder Top|Mini Skirt":{"ethnic":0.794},"Bustier|Sharara":{"ethnic":0.794,"coffee_date":0.737},"Sweatshirt|A-Line Skirt":{"ethnic":0.794},"Corset Top|Ethnic Salwar":{"ethnic":0.794},"Draped Top|Churidar":{"ethnic":0.794},"Shirt|Jeans Flare":{"ethnic":0.794},"Sweater|Jeans Boyfriend":{"ethnic":0.794},"Bow Top|Satin Skirt":{"ethnic":0.794},"Ethnic Kurti|Floral Skirt":{"ethnic":0.794},"Draped Top|Jeans Wide Leg":{"ethnic":0.794},"Cowl Neck Top|Joggers":{"ethnic":0.794},"Halter Top|Pleated Skirt":{"ethnic":0.794},"Cowl Neck Top|Jeans Mom":{"ethnic":0.794},"Turtleneck|Denim Shorts":{"ethnic":0.794},"Ethnic Blouse|Jeans Skinny":{"ethnic":0.794},"Salwar Kameez Top|Denim Shorts":{"ethnic":0.794},"Smocked Top|Leather Skirt":{"date_night":1.0,"casual":0.852},"Graphic Tee|Skort":{"date_night":0.905},"Hoodie|Ethnic Salwar":{"date_night":0.857,"minimalist":0.8,"party":0.682},"Knit Top|Denim Shorts":{"date_night":0.857},"Blouse|Co-ord Bottom":{"date_night":0.857,"coffee_date":0.684},"Knot Front Top|Wide-Leg Trousers":{"date_night":0.857},"Tie Waist Top|Trousers":{"date_night":0.857},"Crop Top|Denim Shorts":{"date_night":0.81},"Smocked Top|Pencil Skirt":{"date_night":0.81},"Milkmaid Top|Satin Skirt":{"date_night":0.81},"Cold Shoulder Top|Wide-Leg Trousers":{"date_night":0.81},"Corset Top|Shorts":{"date_night":0.81},"Corset Top|Trousers":{"date_night":0.81},"Button-Down|Wrap Skirt":{"date_night":0.81},"Turtleneck|Biker Shorts":{"date_night":0.81},"Cami|Ethnic Salwar":{"date_night":0.81},"Graphic Tee|Ethnic Dhoti Pant":{"date_night":0.81,"minimalist":0.75,"party":0.773},"Button-Down|Ethnic Salwar":{"date_night":0.81,"party":0.727},"Tiered Ruffle Top|Floral Skirt":{"date_night":0.81},"Co-ord Top|Biker Shorts":{"date_night":0.762},"Button-Down|Trousers":{"date_night":0.762},"Cami|Shorts":{"date_night":0.762},"Pullover|Pencil Skirt":{"date_night":0.762},"Graphic Tee|Jeans Skinny":{"date_night":0.762},"Knot Front Top|Wrap Skirt":{"date_night":0.762},"Co-ord Top|Mini Skirt":{"date_night":0.762},"Tiered Ruffle Top|Jeans Skinny":{"date_night":0.762},"Wrap Top|Ethnic Salwar":{"date_night":0.762},"Tank Top|Sharara":{"date_night":0.762},"Cami|Leather Skirt":{"date_night":0.762},"Cardigan|Maxi Skirt":{"date_night":0.762},"Draped Top|Ethnic Salwar":{"date_night":0.762},"Halter Top|Shorts":{"date_night":0.762},"Tiered Ruffle Top|Leather Skirt":{"date_night":0.762},"Shirt|Leather Skirt":{"date_night":0.762},"Linen Shirt|Cargo Pants":{"date_night":0.762},"Co-ord Top|Satin Skirt":{"date_night":0.762},"Crop Top|Pencil Skirt":{"date_night":0.762,"coffee_date":0.737},"Halter Top|Wide-Leg Trousers":{"date_night":0.762},"Halter Top|Jeans Skinny":{"date_night":0.714},"Shirt|Leggings":{"date_night":0.714},"Cowl Neck Top|Trousers":{"date_night":0.714,"casual":0.869,"party":0.682},"Sweatshirt|Jeans Mom":{"date_night":0.714,"casual":0.803},"Sweatshirt|Jeans Skinny":{"date_night":0.714},"Corset Top|Leather Skirt":{"date_night":0.714},"Milkmaid Top|Denim Skirt":{"date_night":0.714},"Tube Top|Jeans Wide Leg":{"date_night":0.714,"minimalist":0.8},"Wrap Top|Denim Skirt":{"date_night":0.714},"Knot Front Top|Denim Shorts":{"date_night":0.714},"Crop Top|Pleated Skirt":{"date_night":0.714},"Bodysuit|Denim Shorts":{"date_night":0.714},"Co-ord Top|Jeans Flare":{"date_night":0.714},"Pullover|Jeans Mom":{"date_night":0.714},"Corset Top|Denim Shorts":{"date_night":0.714,"casual":0.787},"T-Shirt|Trousers":{"date_night":0.714},"Button-Down|Denim Shorts":{"date_night":0.714},"Bow Top|Churidar":{"date_night":0.714},"Crop Top|Satin Skirt":{"date_night":0.714},"Sweatshirt|Pencil Skirt":{"date_night":0.714,"coffee_date":0.711},"Cardigan|Ethnic Salwar":{"date_night":0.714,"casual":1.0},"Sweetheart Top|Ethnic Dhoti Pant":{"date_night":0.714,"coffee_date":0.895},"Co-ord Top|Palazzo Pants":{"date_night":0.714},"Square Neck Top|Wrap Skirt":{"date_night":0.714,"coffee_date":0.737},"Crop Top|Wrap Skirt":{"date_night":0.714},"Square Neck Top|Co-ord Bottom":{"date_night":0.714},"Button-Down|A-Line Skirt":{"date_night":0.714},"Smocked Top|Leggings":{"date_night":0.714},"Bralette|Wrap Skirt":{"date_night":0.714,"coffee_date":0.763},"Bow Top|Pencil Skirt":{"date_night":0.714},"Polo Shirt|Jeans Mom":{"casual":1.0},"Linen Shirt|Jeans Mom":{"casual":0.984},"Asymmetric Top|Jeans Boyfriend":{"casual":0.918},"Knot Front Top|Palazzo Pants":{"casual":0.918},"Bodysuit|Leather Skirt":{"casual":0.918},"Hoodie|Leggings":{"casual":0.902},"Asymmetric Top|Jeans Straight":{"casual":0.902},"Tank Top|Maxi Skirt":{"casual":0.902},"Knot Front Top|Pants":{"casual":0.885},"Cardigan|Wrap Skirt":{"casual":0.885,"party":0.682},"Bow Top|Midi Skirt":{"casual":0.885},"Tank Top|Satin Skirt":{"casual":0.885},"Linen Shirt|Ethnic Salwar":{"casual":0.869},"Ethnic Kurti|Satin Skirt":{"casual":0.869},"Tie Waist Top|Wide-Leg Trousers":{"casual":0.869,"party":0.727},"Graphic Tee|Co-ord Bottom":{"casual":0.869,"minimalist":0.8,"coffee_date":0.684},"Ethnic Kurti|Biker Shorts":{"casual":0.852},"Knitted Sweater Off Shoulder|Trousers":{"casual":0.852},"Cowl Neck Top|Jeans Straight":{"casual":0.852},"Blouse|Floral Skirt":{"casual":0.852},"Bustier|Churidar":{"casual":0.852},"Cowl Neck Top|Wide-Leg Trousers":{"casual":0.836},"Hoodie|Churidar":{"casual":0.836},"Knitted Sweater Off Shoulder|Midi Skirt":{"casual":0.836,"coffee_date":0.711},"Cami|Cargo Pants":{"casual":0.836},"Ethnic Blouse|Jeans Flare":{"casual":0.836},"Linen Shirt|Joggers":{"casual":0.836},"Graphic Tee|Pencil Skirt":{"casual":0.836},"Cowl Neck Top|Pants":{"casual":0.836,"minimalist":0.75,"coffee_date":0.737},"Cowl Neck Top|Ethnic Salwar":{"casual":0.836},"Knitted Sweater Off Shoulder|Wrap Skirt":{"casual":0.836,"coffee_date":0.737},"Draped Top|A-Line Skirt":{"casual":0.82},"T-Shirt|Ethnic Dhoti Pant":{"casual":0.82},"Knit Top|Floral Skirt":{"casual":0.82},"Tiered Ruffle Top|Wrap Skirt":{"casual":0.82,"coffee_date":0.684},"Cardigan|Leather Skirt":{"casual":0.82},"Co-ord Top|Maxi Skirt":{"casual":0.82},"Tube Top|Satin Skirt":{"casual":0.82},"Polo Shirt|Jeans Flare":{"casual":0.82},"Blouse|Shorts":{"casual":0.82},"Hoodie|Jeans Skinny":{"casual":0.82},"Button-Down|Skort":{"casual":0.82},"Salwar Kameez Top|Skort":{"casual":0.82},"Asymmetric Top|Leather Skirt":{"casual":0.82,"minimalist":0.9},"Graphic Tee|Shorts":{"casual":0.82},"Sweetheart Top|A-Line Skirt":{"casual":0.82},"Cold Shoulder Top|Denim Skirt":{"casual":0.82},"Knit Top|Jeans Flare":{"casual":0.82},"Tiered Ruffle Top|Biker Shorts":{"casual":0.803},"Asymmetric Top|A-Line Skirt":{"casual":0.803},"Sweetheart Top|Pants":{"casual":0.803},"Peplum Top|Palazzo Pants":{"casual":0.803},"Corset Top|Pants":{"casual":0.803,"minimalist":0.9},"Oxford Shirt|Shorts":{"casual":0.803},"Cowl Neck Top|Midi Skirt":{"casual":0.803},"Bodysuit|Wrap Skirt":{"casual":0.803},"Ethnic Blouse|Wide-Leg Trousers":{"casual":0.803,"party":0.682},"Bustier|Joggers":{"casual":0.803},"Salwar Kameez Top|Jeans Flare":{"casual":0.803},"Bustier|Maxi Skirt":{"casual":0.803},"Square Neck Top|Wide-Leg Trousers":{"casual":0.803},"Cardigan|Joggers":{"casual":0.803,"coffee_date":0.842},"Co-ord Top|Jeans Skinny":{"casual":0.803,"party":0.773},"Bodysuit|Skort":{"casual":0.787},"Tube Top|Jeans Flare":{"casual":0.787},"Corset Top|Biker Shorts":{"casual":0.787},"Smocked Top|Biker Shorts":{"casual":0.787},"Ethnic Blouse|A-Line Skirt":{"casual":0.787},"Bow Top|Leggings":{"minimalist":1.0},"Oxford Shirt|Denim Shorts":{"minimalist":0.95},"Draped Top|Jeans Mom":{"minimalist":0.95},"Sweatshirt|Maxi Skirt":{"minimalist":0.9},"Peplum Top|Biker Shorts":{"minimalist":0.9},"Knot Front Top|Leather Skirt":{"minimalist":0.9},"Knot Front Top|Jeans Flare":{"minimalist":0.9},"Polo Shirt|Wrap Skirt":{"minimalist":0.9},"Linen Shirt|Jeans Straight":{"minimalist":0.9},"Tiered Ruffle Top|Jeans Straight":{"minimalist":0.85},"Corset Top|Jeans Wide Leg":{"minimalist":0.85},"Ethnic Blouse|Satin Skirt":{"minimalist":0.85},"Hoodie|Midi Skirt":{"minimalist":0.85},"Shirt|Joggers":{"minimalist":0.85},"Cowl Neck Top|Pencil Skirt":{"minimalist":0.85},"Corset Top|Sharara":{"minimalist":0.85},"Pullover|Leggings":{"minimalist":0.85},"Bralette|Satin Skirt":{"minimalist":0.85},"T-Shirt|Mini Skirt":{"minimalist":0.85},"Cowl Neck Top|Jeans Boyfriend":{"minimalist":0.85},"Blouse|Joggers":{"minimalist":0.85},"Tank Top|Jeans Boyfriend":{"minimalist":0.85,"party":0.727,"coffee_date":0.711},"Cold Shoulder Top|Co-ord Bottom":{"minimalist":0.85},"Pullover|Wide-Leg Trousers":{"minimalist":0.85,"party":0.682},"Hoodie|Ethnic Dhoti Pant":{"minimalist":0.85},"Ethnic Blouse|Wrap Skirt":{"minimalist":0.85},"Peplum Top|Pants":{"minimalist":0.85},"Shirt|Pencil Skirt":{"minimalist":0.85},"Graphic Tee|A-Line Skirt":{"minimalist":0.85},"Graphic Tee|Jeans Flare":{"minimalist":0.8,"party":0.682},"Square Neck Top|Cargo Pants":{"minimalist":0.8},"Sweatshirt|Floral Skirt":{"minimalist":0.8},"Salwar Kameez Top|Jeans Skinny":{"minimalist":0.8},"Bow Top|Jeans Wide Leg":{"minimalist":0.8},"Turtleneck|Floral Skirt":{"minimalist":0.8},"Tube Top|Biker Shorts":{"minimalist":0.8,"party":0.682},"Sweetheart Top|Jeans Wide Leg":{"minimalist":0.8},"Knot Front Top|Churidar":{"minimalist":0.8},"Off-Shoulder Top|Palazzo Pants":{"minimalist":0.8},"Tube Top|Denim Skirt":{"minimalist":0.8},"Knit Top|Jeans Skinny":{"minimalist":0.8},"Sweatshirt|Wrap Skirt":{"minimalist":0.8},"Peplum Top|Leather Skirt":{"minimalist":0.8},"Smocked Top|Cargo Pants":{"minimalist":0.8},"Polo Shirt|Denim Shorts":{"minimalist":0.8},"Draped Top|Denim Skirt":{"minimalist":0.8},"Knot Front Top|Jeans Boyfriend":{"minimalist":0.8},"Graphic Tee|Ethnic Salwar":{"minimalist":0.8},"Button-Down|Jeans Boyfriend":{"minimalist":0.8},"Ethnic Kurti|Mini Skirt":{"minimalist":0.75},"Bodysuit|A-Line Skirt":{"minimalist":0.75},"Oxford Shirt|Maxi Skirt":{"minimalist":0.75},"Square Neck Top|Sharara":{"minimalist":0.75},"Salwar Kameez Top|Jeans Mom":{"minimalist":0.75},"Cold Shoulder Top|A-Line Skirt":{"minimalist":0.75,"coffee_date":0.711},"Ethnic Kurti|Skort":{"minimalist":0.75},"Bralette|Ethnic Salwar":{"minimalist":0.75},"Bustier|Pleated Skirt":{"minimalist":0.75},"Graphic Tee|Pants":{"minimalist":0.75},"Knot Front Top|Leggings":{"minimalist":0.75},"Shirt|Ethnic Dhoti Pant":{"minimalist":0.75},"Halter Top|Mini Skirt":{"minimalist":0.75},"Sweater|Wrap Skirt":{"minimalist":0.75},"Tube Top|Pants":{"minimalist":0.75},"Co-ord Top|Wrap Skirt":{"minimalist":0.75},"Off-Shoulder Top|Maxi Skirt":{"minimalist":0.75},"Cardigan|Shorts":{"minimalist":0.75,"coffee_date":0.711},"Tie Waist Top|Denim Shorts":{"minimalist":0.75},"Knit Top|Mini Skirt":{"minimalist":0.75},"Knit Top|Biker Shorts":{"minimalist":0.75},"Sweatshirt|Jeans Boyfriend":{"minimalist":0.75},"Button-Down|Jeans Mom":{"party":1.0,"coffee_date":0.684},"Tie Waist Top|Jeans Straight":{"party":0.864},"Halter Top|Trousers":{"party":0.864},"Hoodie|Joggers":{"party":0.864},"Wrap Top|Leather Skirt":{"party":0.818},"Shirt|Denim Skirt":{"party":0.818},"Polo Shirt|Biker Shorts":{"party":0.818},"T-Shirt|Ethnic Salwar":{"party":0.818},"Knot Front Top|Jeans Wide Leg":{"party":0.818},"Bustier|Palazzo Pants":{"party":0.818},"Crop Top|Cargo Pants":{"party":0.818},"Smocked Top|Pleated Skirt":{"party":0.818},"Corset Top|Skort":{"party":0.773},"Halter Top|Pants":{"party":0.773},"Button-Down|Midi Skirt":{"party":0.773},"Bow Top|Jeans Skinny":{"party":0.773},"Ethnic Kurti|Ethnic Salwar":{"party":0.773},"Halter Top|Leggings":{"party":0.773},"Peplum Top|Leggings":{"party":0.773},"Bodysuit|Jeans Wide Leg":{"party":0.773},"Cowl Neck Top|Wrap Skirt":{"party":0.773},"Knitted Sweater Off Shoulder|Ethnic Salwar":{"party":0.773},"Off-Shoulder Top|Skort":{"party":0.773,"coffee_date":0.711},"Sweetheart Top|Jeans Boyfriend":{"party":0.773},"Asymmetric Top|Jeans Mom":{"party":0.773},"Peplum Top|Pencil Skirt":{"party":0.773},"Ethnic Blouse|Trousers":{"party":0.773},"Graphic Tee|Floral Skirt":{"party":0.727},"Draped Top|Mini Skirt":{"party":0.727},"Sweetheart Top|Leggings":{"party":0.727},"Halter Top|Skort":{"party":0.727,"coffee_date":0.895},"Bodysuit|Jeans Boyfriend":{"party":0.727},"Bustier|Leggings":{"party":0.727},"Knot Front Top|Pencil Skirt":{"party":0.727},"Salwar Kameez Top|Wide-Leg Trousers":{"party":0.727},"Oxford Shirt|Sharara":{"party":0.727},"Polo Shirt|Ethnic Dhoti Pant":{"party":0.727},"Linen Shirt|Wrap Skirt":{"party":0.727},"Shirt|Sharara":{"party":0.727},"Button-Down|Jeans Straight":{"party":0.682},"Pullover|Ethnic Dhoti Pant":{"party":0.682},"T-Shirt|Sharara":{"party":0.682},"T-Shirt|A-Line Skirt":{"party":0.682},"Tiered Ruffle Top|Denim Skirt":{"party":0.682,"coffee_date":0.816},"Linen Shirt|Shorts":{"party":0.682},"T-Shirt|Palazzo Pants":{"party":0.682},"Tiered Ruffle Top|Pencil Skirt":{"party":0.682},"Cowl Neck Top|Jeans Skinny":{"party":0.682},"Asymmetric Top|Pencil Skirt":{"party":0.682},"Milkmaid Top|Skort":{"party":0.682},"Cowl Neck Top|Co-ord Bottom":{"party":0.682,"coffee_date":0.763},"Bodysuit|Jeans Mom":{"party":0.682},"Bustier|Mini Skirt":{"party":0.682},"Sweatshirt|Churidar":{"party":0.682},"Knit Top|Leggings":{"party":0.682},"Bralette|Cargo Pants":{"party":0.682},"Polo Shirt|Palazzo Pants":{"party":0.682},"Sweater|Leggings":{"party":0.682},"Turtleneck|A-Line Skirt":{"party":0.682},"Blouse|Satin Skirt":{"party":0.682},"Sweatshirt|Leather Skirt":{"party":0.682},"Cami|Pants":{"party":0.682},"Tube Top|Skort":{"party":0.682},"Graphic Tee|Mini Skirt":{"party":0.682},"Peplum Top|A-Line Skirt":{"party":0.682},"Tiered Ruffle Top|Trousers":{"party":0.682},"Graphic Tee|Leggings":{"party":0.682},"Shirt|Jeans Straight":{"party":0.682},"Polo Shirt|Sharara":{"party":0.682},"Corset Top|A-Line Skirt":{"party":0.682},"Sweater|Denim Skirt":{"coffee_date":0.974},"Tiered Ruffle Top|Leggings":{"coffee_date":0.974},"Tank Top|Palazzo Pants":{"coffee_date":0.921},"Knit Top|Jeans Straight":{"coffee_date":0.895},"Blouse|Palazzo Pants":{"coffee_date":0.868},"Bodysuit|Mini Skirt":{"coffee_date":0.842},"Cami|Joggers":{"coffee_date":0.842},"Bow Top|Sharara":{"coffee_date":0.842},"Sweetheart Top|Co-ord Bottom":{"coffee_date":0.842},"Smocked Top|Shorts":{"coffee_date":0.816},"Bow Top|Wrap Skirt":{"coffee_date":0.789},"Bralette|Maxi Skirt":{"coffee_date":0.789},"Cami|Wrap Skirt":{"coffee_date":0.789},"Turtleneck|Shorts":{"coffee_date":0.789},"Oxford Shirt|Biker Shorts":{"coffee_date":0.789},"Wrap Top|Maxi Skirt":{"coffee_date":0.789},"Graphic Tee|Sharara":{"coffee_date":0.789},"Ethnic Blouse|Floral Skirt":{"coffee_date":0.789},"Wrap Top|Ethnic Dhoti Pant":{"coffee_date":0.789},"Milkmaid Top|Ethnic Salwar":{"coffee_date":0.763},"Graphic Tee|Wrap Skirt":{"coffee_date":0.763},"Corset Top|Churidar":{"coffee_date":0.763},"Tiered Ruffle Top|Maxi Skirt":{"coffee_date":0.763},"Halter Top|Ethnic Dhoti Pant":{"coffee_date":0.763},"Asymmetric Top|Ethnic Salwar":{"coffee_date":0.763},"Crop Top|Jeans Wide Leg":{"coffee_date":0.763},"Shirt|Cargo Pants":{"coffee_date":0.763},"Sweater|Shorts":{"coffee_date":0.737},"Knit Top|Midi Skirt":{"coffee_date":0.737},"Crop Top|Sharara":{"coffee_date":0.737},"T-Shirt|Churidar":{"coffee_date":0.737},"Draped Top|Wide-Leg Trousers":{"coffee_date":0.737},"Smocked Top|Churidar":{"coffee_date":0.737},"Oxford Shirt|Leather Skirt":{"coffee_date":0.737},"Smocked Top|Midi Skirt":{"coffee_date":0.737},"Bralette|Jeans Flare":{"coffee_date":0.737},"Sweatshirt|Jeans Flare":{"coffee_date":0.737},"Off-Shoulder Top|Leggings":{"coffee_date":0.711},"Off-Shoulder Top|Pleated Skirt":{"coffee_date":0.711},"Sweetheart Top|Ethnic Salwar":{"coffee_date":0.711},"T-Shirt|Biker Shorts":{"coffee_date":0.711},"Knitted Sweater Off Shoulder|Pants":{"coffee_date":0.711},"Tank Top|Pencil Skirt":{"coffee_date":0.711},"Draped Top|Skort":{"coffee_date":0.711},"Knitted Sweater Off Shoulder|Skort":{"coffee_date":0.711},"Blouse|Jeans Straight":{"coffee_date":0.711},"Turtleneck|Sharara":{"coffee_date":0.711},"Crop Top|Co-ord Bottom":{"coffee_date":0.711},"Tube Top|Wide-Leg Trousers":{"coffee_date":0.711},"Tie Waist Top|Churidar":{"coffee_date":0.711},"Sweetheart Top|Wide-Leg Trousers":{"coffee_date":0.711},"Sweater|Leather Skirt":{"coffee_date":0.711},"Draped Top|Sharara":{"coffee_date":0.711},"Ethnic Kurti|Pencil Skirt":{"coffee_date":0.711},"Ethnic Blouse|Ethnic Dhoti Pant":{"coffee_date":0.711},"Knitted Sweater Off Shoulder|Floral Skirt":{"coffee_date":0.684},"Draped Top|Jeans Skinny":{"coffee_date":0.684},"Hoodie|Pleated Skirt":{"coffee_date":0.684},"Tank Top|Jeans Mom":{"coffee_date":0.684},"Knot Front Top|Maxi Skirt":{"coffee_date":0.684}};
+
+const BUCKET_VIBES = {"party":{"mood":"party-ready and bold","verbs":["turns heads","commands attention","owns the room","makes a statement"],"style_note":"The high-contrast styling and statement pieces signal party energy.","shoes_tip":["Block Heels","Platform Heels","Stilettos","Strappy Sandals"],"bag_tip":["Mini Bag","Chain Bag","Clutch","Envelope Clutch"]},"date_night":{"mood":"romantic and elevated","verbs":["sets the mood","radiates allure","feels effortlessly intimate","strikes the perfect balance"],"style_note":"The combination creates a polished yet approachable romantic look.","shoes_tip":["Heeled Mules","Stilettos","Block Heels","Ankle Boots"],"bag_tip":["Mini Bag","Clutch","Chain Bag","Envelope Clutch"]},"office":{"mood":"polished and professional","verbs":["projects authority","looks boardroom-ready","balances structure and ease","signals quiet confidence"],"style_note":"Clean lines and refined silhouettes make this a standout professional look.","shoes_tip":["Loafers","Oxford Shoes","Ballet Flats","Block Heels","Derby Shoes"],"bag_tip":["Structured Handbag","Laptop Sleeve","Briefcase","Tote Bag"]},"casual":{"mood":"effortless and laid-back","verbs":["feels lived-in and cool","nails that off-duty ease","is easy to wear all day","looks put-together without trying"],"style_note":"Relaxed proportions and comfortable pieces make this perfect for everyday.","shoes_tip":["White Sneakers","Loafers","Slides","Canvas Sneakers"],"bag_tip":["Crossbody Bag","Canvas Tote","Belt Bag / Fanny Pack","Backpack"]},"coffee_date":{"mood":"charming and relaxed-chic","verbs":["strikes a perfect daytime note","feels warm and approachable","is chic without being overdressed","radiates effortless charm"],"style_note":"Soft textures and feminine shapes make this ideal for a daytime outing.","shoes_tip":["Ballet Flats","Loafers","Mary Janes","Ankle Boots"],"bag_tip":["Crossbody Bag","Baguette Bag","Shoulder Bag","Hobo Bag"]},"summer_picnic":{"mood":"breezy and sun-ready","verbs":["is made for sunny days","feels fresh and carefree","captures that warm-weather ease","is perfectly laid-back"],"style_note":"Lightweight fabrics and easy silhouettes are built for outdoor warmth.","shoes_tip":["Flat Sandals","Wedge Sandals","Slides","Canvas Sneakers"],"bag_tip":["Canvas Tote","Market Bag","Woven Bag","Backpack"]},"streetwear":{"mood":"bold and street-ready","verbs":["owns the street","hits that hype-culture note","is effortlessly cool","has serious street cred"],"style_note":"Oversized proportions and graphic elements deliver that signature street-style edge.","shoes_tip":["Chunky Sneakers","Combat Boots","White Sneakers","Canvas Sneakers"],"bag_tip":["Backpack","Sling Bag","Belt Bag / Fanny Pack","Crossbody Bag"]},"minimalist":{"mood":"clean and intentional","verbs":["speaks through restraint","achieves quiet elegance","lets quality do the talking","is refined and deliberate"],"style_note":"A tonal palette and considered proportions define this understated aesthetic.","shoes_tip":["Loafers","Ballet Flats","White Sneakers","Mules"],"bag_tip":["Structured Handbag","Tote Bag","Crossbody Bag","Clutch"]},"feminine":{"mood":"soft and effortlessly feminine","verbs":["celebrates softness","feels gracefully romantic","radiates gentle femininity","is delightfully pretty"],"style_note":"Flowing silhouettes and delicate details create an effortlessly feminine ensemble.","shoes_tip":["Ballet Flats","Strappy Sandals","Mary Janes","Kitten Heels"],"bag_tip":["Baguette Bag","Mini Bag","Shoulder Bag","Clutch"]},"edgy":{"mood":"dark and unapologetically bold","verbs":["makes a fearless statement","channels that rock-and-roll edge","refuses to be ignored","is confidently rebellious"],"style_note":"Dark textures and structured silhouettes deliver an unapologetic edge.","shoes_tip":["Combat Boots","Ankle Boots","Platform Heels","Chunky Sneakers"],"bag_tip":["Chain Bag","Mini Bag","Crossbody Bag","Clutch"]},"ethnic":{"mood":"culturally rich and celebratory","verbs":["honours South Asian elegance","radiates festive warmth","celebrates heritage beautifully","is perfectly occasion-dressed"],"style_note":"Rich fabrics and traditional silhouettes create a look steeped in cultural beauty.","shoes_tip":["Juttis","Kolhapuri Sandals","Ethnic Heels","Block Heels"],"bag_tip":["Clutch","Mini Bag","Envelope Clutch","Chain Bag"]}};
+
+const BUCKET_PROHIBITED_MATERIALS = {
+  office:["Mesh","Spandex","Fleece","Sequin / Embellished"],
+  ethnic:["Leather","Faux Leather"],
+  streetwear:[],
+  feminine:["Leather","Faux Leather","Tweed"],
+};
+
+// ═══════════════════════════════════════════════════════════
+// SILHOUETTE HARMONY
+// ═══════════════════════════════════════════════════════════
+const SILHOUETTE_SCORES = {
+  "Oversized":    {default:10,"Fitted / Slim":20,"Bodycon / Tight":20,"Regular / Classic":16,"A-Line / Flared":18,"Boxy":-5},
+  "Boxy":         {default:10,"Fitted / Slim":15,"Bodycon / Tight":15,"Regular / Classic":12,"Boxy":-5},
+  "Fitted / Slim":{default:10,"Flowy / Loose":20,"A-Line / Flared":20,"Oversized":18,"Regular / Classic":14},
+  "Cropped":      {default:10,"Flowy / Loose":20,"A-Line / Flared":20,"Regular / Classic":16,"Oversized":18},
+  "Flowy / Loose":{default:10,"Fitted / Slim":20,"Regular / Classic":16,"Structured":15},
+  "Structured":   {default:10,"Flowy / Loose":20,"Regular / Classic":15,"Fitted / Slim":14},
+  "Regular / Classic":{default:14,"Regular / Classic":14,"Fitted / Slim":16,"Flowy / Loose":16,"A-Line / Flared":16},
+  "Bodycon / Tight":{default:8,"Oversized":18,"Relaxed":15},
+  "Longline":     {default:12},
+  "A-Line / Flared":{default:12},
+};
+function getSilhouetteScore(topFit, botFit) {
+  if (!topFit || !botFit) return 12;
+  const row = SILHOUETTE_SCORES[topFit];
+  if (!row) return 12;
+  return row[botFit] ?? row.default ?? 12;
 }
 
-// ─── COLOR HARMONY ───────────────────────────────────────────
-function colorScore(items) {
-  const grps=items.map(i=>COLORS.find(c=>c.name===i.color)?.group).filter(Boolean);
-  if(grps.length<2) return 15;
-  const vibs=grps.filter(g=>g!=="neutral"&&g!=="metallic");
-  if(vibs.length<=1) return 20;
-  let pairs=0,h=0;
-  for(let i=0;i<grps.length;i++) for(let j=i+1;j<grps.length;j++){
-    const[a,b]=[grps[i],grps[j]];
-    if(a==="neutral"||b==="neutral"||a==="metallic"||b==="metallic") h+=1;
-    else if(a===b) h+=0.82;
-    else if((a==="warm"&&b==="cool")||(a==="cool"&&b==="warm")) h+=0.5;
-    else h+=0.6;
+// ═══════════════════════════════════════════════════════════
+// COLOR HARMONY
+// ═══════════════════════════════════════════════════════════
+function colorScore(allItems) {
+  const colorGroups = allItems.map(i=>COLORS.find(c=>c.name===i.color)?.group).filter(Boolean);
+  if (colorGroups.length < 2) return 15;
+  const vibrants = colorGroups.filter(g=>g!=="neutral"&&g!=="metallic");
+  if (vibrants.length <= 1) return 20;
+  let pairs=0, harmony=0;
+  for (let i=0;i<colorGroups.length;i++) for (let j=i+1;j<colorGroups.length;j++) {
+    const [ga,gb] = [colorGroups[i],colorGroups[j]];
+    if (ga==="neutral"||gb==="neutral"||ga==="metallic"||gb==="metallic") harmony+=1;
+    else if (ga===gb) harmony+=0.82;
+    else if ((ga==="warm"&&gb==="cool")||(ga==="cool"&&gb==="warm")) harmony+=0.5;
+    else if ((ga==="pink"&&gb==="cool")||(ga==="cool"&&gb==="pink")) harmony+=0.75;
+    else harmony+=0.55;
     pairs++;
   }
-  return Math.round(Math.min(20,(h/pairs)*20));
+  const neutralAccessory = allItems.some(i=>["Shoes","Bag"].includes(i.category)&&COLORS.find(c=>c.name===i.color)?.group==="neutral");
+  const penalty = vibrants.length>2 && !neutralAccessory ? -5 : 0;
+  return Math.round(Math.min(20,(harmony/pairs)*20)+penalty);
 }
 
-function patternScore(items) {
+function patternScore(allItems) {
   const bold=["Floral (Large)","Animal Print","Plaid / Tartan","Tie-Dye","Graphic / Text","Abstract Print"];
-  let boldC=0,subtleC=0,solidC=0;
-  items.forEach(i=>{
-    if(!i.pattern||i.pattern==="Solid") solidC++;
-    else if(bold.includes(i.pattern)) boldC++;
-    else subtleC++;
+  let boldCount=0, subtleCount=0, solidCount=0;
+  allItems.forEach(i=>{
+    if (!i.pattern||i.pattern==="Solid") solidCount++;
+    else if (bold.includes(i.pattern)) boldCount++;
+    else subtleCount++;
   });
-  if(boldC===0&&subtleC===0) return 9;
-  if(boldC===1&&solidC>=1) return 10;
-  if(boldC===0&&subtleC<=2) return 8;
-  if(boldC>=2) return 3;
+  if (boldCount===0&&subtleCount===0) return 9;
+  if (boldCount===1&&solidCount>=1) return 10;
+  if (boldCount===0&&subtleCount<=2) return 8;
+  if (boldCount>=2) return 3;
+  if (boldCount===1&&subtleCount>=1) return 6;
   return 7;
 }
 
-function materialScore(items) {
-  const mats=items.map(i=>i.material).filter(Boolean);
-  if(mats.length<2) return 10;
-  let t=0,p=0;
-  for(let i=0;i<mats.length;i++) for(let j=i+1;j<mats.length;j++){
-    t+=getMaterialCompat(mats[i],mats[j]); p++;
+function materialScore(allItems) {
+  const mats = allItems.map(i=>i.material).filter(Boolean);
+  if (mats.length<2) return 10;
+  let total=0, pairs=0;
+  for (let i=0;i<mats.length;i++) for (let j=i+1;j<mats.length;j++) {
+    total += getMaterialScore(mats[i],mats[j]); pairs++;
   }
-  return Math.round(Math.min(15,Math.max(0,t/p)));
+  return Math.round(Math.min(15,Math.max(0,total/pairs)));
 }
 
-// ─── TIER RESOLVER ───────────────────────────────────────────
-// Returns tier (1=dominant, 2=strong, 3=compatible, 4=clash) for a subtype in a bucket
-function getTier(subtype, bucketId) {
-  const sig = OCCASION_SIGNALS[bucketId];
-  if (!sig) return 3;
-  const s = (subtype||"").trim();
-  if (sig.tier1_tops?.includes(s) || sig.tier1_bots?.includes(s)) return 1;
-  if (sig.tier2_tops?.includes(s) || sig.tier2_bots?.includes(s)) return 2;
-  if (sig.clash_tops?.includes(s) || sig.clash_bots?.includes(s)) return 4;
-  return 3;
+function occasionScore(allItems, bucket) {
+  if (!allItems.length) return 12;
+  let total=0;
+  allItems.forEach(i=>{
+    const occ=(i.occasions||[]).filter(o=>bucket.occasions.includes(o)).length;
+    total += Math.min(1, 0.3+occ*0.35);
+  });
+  return Math.round((total/allItems.length)*25);
 }
 
-// ─── GROUND TRUTH LOOKUP ─────────────────────────────────────
-function getGroundTruthBase(topSubtype, botSubtype, bucketId) {
-  // Check scored pair lookup first (most accurate)
-  const pairKey = `${topSubtype}|${botSubtype}|${bucketId}`;
-  if (SCORED_PAIRS[pairKey]) return SCORED_PAIRS[pairKey];
-  
-  // Try GT top scores
-  const occMap = Object.fromEntries(Object.entries(GT_OCC_MAP).map(([k,v])=>[v,k]));
-  const occName = occMap[bucketId];
-  if (occName) {
-    const topGT = GROUND_TRUTH_TOPS[topSubtype]?.[occName];
-    const botGT = GROUND_TRUTH_BOTS[botSubtype]?.[occName];
-    if (topGT && botGT) return Math.round((topGT + botGT) / 2);
-    if (topGT) return topGT;
-    if (botGT) return botGT;
-  }
-  return null;
+function anchorBonus(allItems, bucketId) {
+  const anchors = BUCKET_ANCHORS[bucketId]||[];
+  return allItems.some(i=>anchors.includes(i.subtype)) ? 10 : 0;
+}
+
+function checkProhibitedMaterials(items, bucketId) {
+  const prohibited = BUCKET_PROHIBITED_MATERIALS[bucketId]||[];
+  return items.some(i=>prohibited.includes(i.material));
 }
 
 // ═══════════════════════════════════════════════════════════
-// MAIN SCORING FUNCTION
+// FULL SCORING — 100 POINTS + MATERIAL BOOST MULTIPLIER
 // ═══════════════════════════════════════════════════════════
+// ─── GROUND TRUTH from 10k scored dataset ──────────────────
+const SCORED_PAIRS = {"Cami|Jeans Mom|casual":74,"Button-Down|Trousers|office":84,"Knit Top|Jeans Mom|casual":72,"Sequin Top|Cargo Pants|party":89,"Tank Top|Jeans Mom|casual":73,"Off-Shoulder Top|Satin Skirt|party":90,"Button-Down|Pencil Skirt|office":85,"Knit Top|Joggers|casual":73,"Graphic Tee|Cargo Pants|casual":71,"Corset Top|Jeans Wide Leg|party":89,"Blouse|Wide-Leg Trousers|office":85,"Blouse|Pencil Skirt|office":85,"Crop Top|Jeans Mom|casual":71,"Sequin Top|Leather Skirt|party":90,"Button-Down|Wide-Leg Trousers|office":85,"Cowl Neck Top|Jeans Mom|party":90,"Halter Top|Joggers|party":90,"Cowl Neck Top|Leather Skirt|party":90,"Crop Top|Joggers|casual":74,"Knit Top|Cargo Pants|casual":72,"Cami|Jeans Wide Leg|casual":73,"Tank Top|Joggers|casual":73,"Cowl Neck Top|Cargo Pants|party":91,"Blouse|Trousers|office":85,"Off-Shoulder Top|Leather Skirt|party":91,"Halter Top|Jeans Mom|party":89,"T-Shirt|Jeans Mom|casual":73,"Sequin Top|Jeans Mom|party":91,"Silk Blouse|Wide-Leg Trousers|office":85,"Bustier|Mini Skirt|party":89,"Sequin Top|Mini Skirt|party":91,"T-Shirt|Cargo Pants|casual":73,"Corset Top|Mini Skirt|party":89,"Oxford Shirt|Pencil Skirt|office":85,"Graphic Tee|Joggers|casual":71,"Corset Top|Leather Skirt|party":90,"Graphic Tee|Jeans Wide Leg|casual":72,"Tank Top|Cargo Pants|casual":72,"Tank Top|Jeans Wide Leg|casual":72,"Knit Top|Jeans Wide Leg|casual":72,"Halter Top|Cargo Pants|party":90,"Crop Top|Jeans Wide Leg|casual":73,"Oxford Shirt|Trousers|office":85,"Off-Shoulder Top|Mini Skirt|party":90,"Cami|Cargo Pants|casual":72,"T-Shirt|Joggers|casual":73,"Cami|Joggers|casual":71,"Oxford Shirt|Wide-Leg Trousers|office":85,"Sequin Top|Joggers|party":90,"Silk Blouse|Pencil Skirt|office":85,"Off-Shoulder Top|Joggers|party":90,"Halter Top|Leather Skirt|party":90,"Halter Top|Satin Skirt|party":89,"Bustier|Satin Skirt|party":91,"Silk Blouse|Trousers|office":85,"Off-Shoulder Top|Cargo Pants|party":90,"Off-Shoulder Top|Jeans Mom|party":91,"Corset Top|Jeans Mom|party":90,"Corset Top|Joggers|party":90,"Off-Shoulder Top|Jeans Wide Leg|party":90,"Sequin Top|Satin Skirt|party":90,"Corset Top|Cargo Pants|party":89,"Bustier|Joggers|party":90,"Graphic Tee|Jeans Mom|casual":72,"Cowl Neck Top|Jeans Wide Leg|party":90,"Halter Top|Mini Skirt|party":90,"Bustier|Jeans Mom|party":91,"Sequin Top|Jeans Wide Leg|party":90,"Cowl Neck Top|Mini Skirt|party":90,"Halter Top|Jeans Wide Leg|party":90,"Bustier|Jeans Wide Leg|party":89,"Cowl Neck Top|Satin Skirt|party":91,"T-Shirt|Jeans Wide Leg|casual":72,"Crop Top|Cargo Pants|casual":72,"Corset Top|Satin Skirt|party":89,"Bustier|Cargo Pants|party":91,"Bustier|Leather Skirt|party":89,"Cowl Neck Top|Joggers|party":89};
+const GT_TOPS = {"Cami":{"Casual Everyday":73},"Button-Down":{"Office Work":85},"Knit Top":{"Casual Everyday":72},"Sequin Top":{"Party Night Out":90},"Tank Top":{"Casual Everyday":73},"Off-Shoulder Top":{"Party Night Out":90},"Graphic Tee":{"Casual Everyday":71},"Corset Top":{"Party Night Out":90},"Blouse":{"Office Work":85},"Crop Top":{"Casual Everyday":73},"Cowl Neck Top":{"Party Night Out":90},"Halter Top":{"Party Night Out":90},"T-Shirt":{"Casual Everyday":73},"Silk Blouse":{"Office Work":85},"Bustier":{"Party Night Out":90},"Oxford Shirt":{"Office Work":85}};
+const GT_BOTS = {"Jeans Mom":{"Casual Everyday":73,"Party Night Out":90},"Trousers":{"Office Work":85},"Cargo Pants":{"Party Night Out":90,"Casual Everyday":72},"Satin Skirt":{"Party Night Out":90},"Pencil Skirt":{"Office Work":85},"Joggers":{"Casual Everyday":72,"Party Night Out":90},"Jeans Wide Leg":{"Party Night Out":90,"Casual Everyday":73},"Wide-Leg Trousers":{"Office Work":85},"Leather Skirt":{"Party Night Out":90},"Mini Skirt":{"Party Night Out":90}};
+const GT_OCC  = {"Party Night Out":"party","Office Work":"office","Casual Everyday":"casual"};
+
+// ─── OCCASION SIGNAL TIERS ──────────────────────────────────
+// tier1 = item DEFINES this occasion (score floor 85+)
+// tier2 = item clearly fits (floor 74+)
+// clash = item actively fights this occasion (hard penalty)
+const OCC_TIERS = {
+  party: {
+    tier1: ["Sequin Top","Bustier","Corset Top","Off-Shoulder Top","Halter Top","Cowl Neck Top","Tube Top","Bodycon Dress","Sequin Dress","Slip Dress","Mermaid Gown"],
+    tier2: ["Bralette","Crop Top","Cami","Sweetheart Neck Top","Asymmetric Top","Smocked Top","Draped Top","Wrap Top","Satin Skirt","Leather Skirt","Mini Skirt","Mini Dress"],
+    clash: ["Hoodie","Sweatshirt","T-Shirt","Graphic Tee","Oxford Shirt","Linen Shirt","Button-Down","Polo Shirt","Turtleneck","Pullover","Sweater","Leggings","Biker Shorts","Joggers"],
+  },
+  office: {
+    tier1: ["Oxford Shirt","Silk Blouse","Blouse","Button-Down","Turtleneck","Peplum Top","Wrap Top","Trousers","Wide-Leg Trousers","Pencil Skirt","Palazzo Pants"],
+    tier2: ["Knit Top","Sweater","Pullover","Cami","Bodysuit","Cardigan","Jeans (Straight)","Jeans (Skinny)","Midi Skirt","A-Line Skirt"],
+    clash: ["Sequin Top","Bustier","Corset Top","Halter Top","Bralette","Hoodie","Sweatshirt","Graphic Tee","Cargo Pants","Joggers","Leggings","Mini Skirt","Leather Skirt"],
+  },
+  casual: {
+    tier1: ["T-Shirt","Graphic Tee","Crop Top","Tank Top","Cami","Sweatshirt","Hoodie","Linen Shirt","Jeans (Skinny)","Jeans (Straight)","Jeans (Wide Leg)","Jeans (Mom)","Jeans (Flare)","Jeans (Boyfriend)","Denim Shorts","Shorts","Leggings","Cargo Pants"],
+    tier2: ["Blouse","Button-Down","Wrap Top","Sweater","Pullover","Polo Shirt","Bodysuit","Knit Top","Joggers","Mini Skirt","Midi Skirt","Denim Skirt","Floral Skirt"],
+    clash: ["Sequin Top","Bustier","Corset Top","Bralette","Silk Blouse","Leather Skirt","Satin Skirt"],
+  },
+  date_night: {
+    tier1: ["Corset Top","Bustier","Halter Top","Cowl Neck Top","Off-Shoulder Top","Bodysuit","Tube Top","Slip Dress","Bodycon Dress","Leather Skirt","Satin Skirt","Mini Skirt"],
+    tier2: ["Wrap Top","Sweetheart Neck Top","Draped Top","Crop Top","Cami","Knit Top","Jeans (Skinny)","Jeans (Mom)","Midi Skirt","A-Line Skirt"],
+    clash: ["Hoodie","Sweatshirt","Graphic Tee","T-Shirt","Linen Shirt","Cargo Pants","Joggers","Leggings","Biker Shorts"],
+  },
+  coffee_date: {
+    tier1: ["Wrap Top","Knit Top","Blouse","Cami","Smocked Top","Milkmaid Top","Sweetheart Neck Top","Peplum Top","Tiered Ruffle Top","Bow Top","Midi Skirt","A-Line Skirt","Floral Skirt"],
+    tier2: ["Crop Top","Bodysuit","Oxford Shirt","Button-Down","Tank Top","Sweater","Jeans (Mom)","Jeans (Wide Leg)","Jeans (Flare)","Denim Skirt","Wrap Skirt"],
+    clash: ["Sequin Top","Bustier","Bralette","Hoodie","Leather Skirt","Satin Skirt","Joggers"],
+  },
+  summer_picnic: {
+    tier1: ["Cami","Tank Top","Crop Top","Linen Shirt","Smocked Top","Milkmaid Top","Off-Shoulder Top","T-Shirt","Halter Top","Floral Skirt","Maxi Skirt","Denim Shorts","Shorts"],
+    tier2: ["Wrap Top","Blouse","Knit Top","Polo Shirt","Bodysuit","Jeans (Straight)","Jeans (Mom)","Mini Skirt","Skort","Wrap Skirt","Midi Skirt"],
+    clash: ["Sequin Top","Bustier","Corset Top","Hoodie","Sweatshirt","Turtleneck","Leather Skirt","Satin Skirt"],
+  },
+  streetwear: {
+    tier1: ["Graphic Tee","Hoodie","Sweatshirt","Crop Top","Bralette","Cargo Pants","Joggers","Biker Shorts","Jeans (Straight)","Jeans (Wide Leg)","Jeans (Boyfriend)"],
+    tier2: ["T-Shirt","Tank Top","Polo Shirt","Cami","Knit Top","Tube Top","Denim Shorts","Mini Skirt","Leggings","Jeans (Skinny)","Jeans (Mom)"],
+    clash: ["Sequin Top","Silk Blouse","Blouse","Peplum Top","Trousers","Wide-Leg Trousers","Pencil Skirt","Satin Skirt","Leather Skirt","Maxi Skirt"],
+  },
+  minimalist: {
+    tier1: ["Turtleneck","Silk Blouse","Cami","Tank Top","Bodysuit","Wrap Top","Knit Top","Blouse","Wide-Leg Trousers","Trousers","Midi Skirt","Maxi Skirt","Palazzo Pants"],
+    tier2: ["T-Shirt","Sweater","Pullover","Crop Top","Oxford Shirt","Button-Down","Jeans (Skinny)","Jeans (Wide Leg)","Jeans (Mom)","A-Line Skirt"],
+    clash: ["Graphic Tee","Hoodie","Sweatshirt","Sequin Top","Tiered Ruffle Top","Cargo Pants","Joggers"],
+  },
+  feminine: {
+    tier1: ["Milkmaid Top","Smocked Top","Bow Top","Off-Shoulder Top","Sweetheart Neck Top","Halter Top","Tiered Ruffle Top","Wrap Top","Peplum Top","Blouse","Floral Skirt","Midi Skirt","Maxi Skirt","A-Line Skirt","Wrap Skirt","Satin Skirt"],
+    tier2: ["Crop Top","Knit Top","Bodysuit","Tube Top","Tank Top","Cami","Mini Skirt","Denim Skirt","Jeans (Skinny)","Jeans (Mom)"],
+    clash: ["Graphic Tee","Hoodie","Sweatshirt","Polo Shirt","Cargo Pants","Joggers","Biker Shorts"],
+  },
+  edgy: {
+    tier1: ["Corset Top","Bustier","Bralette","Asymmetric Top","Tube Top","Graphic Tee","Sequin Top","Leather Skirt","Cargo Pants","Biker Shorts","Mini Skirt","Jeans (Skinny)"],
+    tier2: ["Crop Top","Cami","Halter Top","Hoodie","Off-Shoulder Top","Jeans (Straight)","Jeans (Wide Leg)","Jeans (Flare)","Denim Shorts","Shorts"],
+    clash: ["Blouse","Silk Blouse","Peplum Top","Bow Top","Milkmaid Top","Oxford Shirt","Trousers","Wide-Leg Trousers","Maxi Skirt","Satin Skirt"],
+  },
+  ethnic: {
+    tier1: ["Ethnic Kurti","Ethnic Blouse","Salwar Kameez Top","Ethnic Salwar","Ethnic Dhoti Pant","Churidar","Sharara","Co-ord Bottom"],
+    tier2: ["Wrap Top","Cowl Neck Top","Smocked Top","Halter Top","Blouse","Palazzo Pants","Maxi Skirt","Floral Skirt"],
+    clash: ["Graphic Tee","Hoodie","Sweatshirt","Polo Shirt","T-Shirt","Oxford Shirt","Biker Shorts","Leather Skirt","Denim Shorts","Leggings"],
+  },
+};
+
+// ─── MATERIAL → OCCASION SIGNAL ─────────────────────────────
+const MAT_OCC_SIGNAL = {
+  "Sequin / Embellished": { party:22, date_night:12, edgy:8, office:-20, casual:-15 },
+  "Satin":               { party:12, date_night:14, feminine:8, office:4 },
+  "Silk":                { party:10, date_night:12, feminine:8, office:8 },
+  "Velvet":              { party:10, date_night:8,  feminine:6, edgy:4 },
+  "Lace":                { party:8,  date_night:10, feminine:12 },
+  "Leather":             { edgy:14, party:8, date_night:8, ethnic:-15, office:-8 },
+  "Faux Leather":        { edgy:12, party:6, date_night:6, ethnic:-12 },
+  "Mesh":                { party:6, edgy:10, streetwear:8, office:-15 },
+  "Denim":               { casual:8, streetwear:6, coffee_date:4 },
+  "Linen":               { summer_picnic:10, casual:6, minimalist:6, party:-8 },
+  "Fleece":              { casual:8, streetwear:6, party:-12 },
+  "Spandex":             { casual:4, streetwear:6, party:-8, office:-15 },
+  "Brocade":             { ethnic:12, party:6 },
+  "Embroidered":         { ethnic:10, party:5, feminine:5 },
+};
+
 function fullScoreOutfit(outfit, bucket) {
-  const top    = outfit.top || outfit.dress;
-  const bot    = outfit.bottom;
+  const top      = outfit.top || outfit.dress;
+  const bot      = outfit.bottom;
   const allItems = [outfit.top, outfit.bottom, outfit.dress, outfit.outerwear, outfit.shoes, outfit.bag].filter(Boolean);
-  const coreItems = [outfit.top, outfit.bottom, outfit.dress].filter(Boolean);
+  const coreItems= [outfit.top, outfit.bottom, outfit.dress].filter(Boolean);
   if (!coreItems.length) return 0;
 
   const bid = bucket.id;
+  const tiers = OCC_TIERS[bid] || { tier1:[], tier2:[], clash:[] };
 
-  // ── STEP 1: OCCASION SIGNAL ASSESSMENT ─────────────────────
-  // Determines the BASE score range. This is the dominant signal.
-  
-  const topTier = top ? getTier(top.subtype, bid) : 3;
-  const botTier = bot ? getTier(bot.subtype, bid) : 3;
-  
-  // Hard clash: if a core item is Tier 4, hard penalise
-  const hasClash = topTier === 4 || botTier === 4;
+  // ── STEP 1: Occasion tier for top & bottom ────────────────
+  function getTier(subtype) {
+    if (!subtype) return 3;
+    if (tiers.tier1.includes(subtype)) return 1;
+    if (tiers.tier2.includes(subtype)) return 2;
+    if (tiers.clash.includes(subtype)) return 4;
+    return 3;
+  }
+  const topTier = top ? getTier(top.subtype) : 3;
+  const botTier = bot ? getTier(bot.subtype) : 3;
 
-  // ── STEP 2: GROUND TRUTH OVERRIDE ──────────────────────────
-  // If we have exact scored data for this combo, use it as foundation
+  // ── STEP 2: Ground truth override ────────────────────────
+  // If we have exact scored data, use it as the occasion base
   let gtBase = null;
-  if (top && bot) gtBase = getGroundTruthBase(top.subtype, bot.subtype, bid);
-
-  // ── STEP 3: MATERIAL SIGNALS ────────────────────────────────
-  // Materials directly boost or suppress occasion match
-  let materialBoost = 0;
-  for (const item of allItems) {
-    if (!item.material) continue;
-    const mb = MATERIAL_OCCASION_BOOST[item.material];
-    if (mb && mb[bid] !== undefined) {
-      materialBoost += mb[bid];
+  if (top && bot) {
+    const pk = `${top.subtype}|${bot.subtype}|${bid}`;
+    if (SCORED_PAIRS[pk]) gtBase = SCORED_PAIRS[pk];
+    else {
+      const occName = Object.entries(GT_OCC).find(([,v])=>v===bid)?.[0];
+      if (occName) {
+        const tGT = GT_TOPS[top.subtype]?.[occName];
+        const bGT = GT_BOTS[bot.subtype]?.[occName];
+        if (tGT && bGT) gtBase = Math.round((tGT + bGT) / 2);
+        else if (tGT)   gtBase = tGT;
+        else if (bGT)   gtBase = bGT;
+      }
     }
   }
-  materialBoost = Math.max(-30, Math.min(25, materialBoost));
 
-  // ── STEP 4: TIER-BASED SCORE FLOOR ─────────────────────────
-  // Calculate occasion compatibility score (out of 100)
-  let occasionScore;
-  
+  // ── STEP 3: Material signal ───────────────────────────────
+  let matSignal = 0;
+  for (const item of allItems) {
+    const mb = item.material ? MAT_OCC_SIGNAL[item.material] : null;
+    if (mb && mb[bid] !== undefined) matSignal += mb[bid];
+  }
+  matSignal = Math.max(-25, Math.min(22, matSignal));
+
+  // ── STEP 4: Occasion base score ───────────────────────────
+  let occBase;
   if (gtBase) {
-    // Ground truth is our best signal — trust it directly
-    occasionScore = Math.min(100, gtBase + materialBoost * 0.4);
+    occBase = Math.min(100, gtBase + matSignal * 0.4);
   } else {
-    // Calculate from tier signals
-    const tierScores = { 1:90, 2:78, 3:68, 4:40 };
-    const topOS  = tierScores[topTier] ?? 68;
-    const botOS  = tierScores[botTier] ?? 68;
-    
-    // Weighted: top matters more for occasion (60/40 split)
-    let baseOS = top && bot ? (topOS*0.6 + botOS*0.4)
-                            : top ? topOS : botOS;
-    
-    // If BOTH items are Tier 1, synergy bonus
-    if (topTier===1 && botTier===1) baseOS = Math.min(100, baseOS + 6);
-    // If top is Tier 1 (dominant party signal), bot tier has less impact
-    if (topTier===1 && botTier>=3)  baseOS = Math.max(baseOS, 82);
-    // If top is Tier 2 and bot is Tier 1, still good
-    if (topTier===2 && botTier===1) baseOS = Math.max(baseOS, 78);
-    
-    occasionScore = Math.min(100, Math.max(0, baseOS + materialBoost * 0.5));
+    const tierFloor = { 1:88, 2:76, 3:65, 4:38 };
+    const topOS = tierFloor[topTier] ?? 65;
+    const botOS = bot ? (tierFloor[botTier] ?? 65) : topOS;
+    let base = top && bot ? (topOS * 0.6 + botOS * 0.4) : topOS;
+    // Dominant top overrides weak bottom
+    if (topTier === 1 && botTier >= 3) base = Math.max(base, 82);
+    if (topTier === 1 && botTier === 1) base = Math.min(100, base + 5);
+    occBase = Math.min(100, Math.max(0, base + matSignal * 0.5));
   }
 
-  // ── STEP 5: QUALITY MODIFIERS ─────────────────────────────
-  // These adjust within the occasion score range (±15 points max)
-  
-  // Silhouette (±8)
-  const silhouetteMod = top && bot 
-    ? ((getSilScore(top.fit, bot.fit) - 12) / 20 * 8) 
-    : 0;
-  
-  // Color (±5)
-  const colorMod = (colorScore(allItems) - 15) / 5 * 4;
-  
-  // Material compatibility (±5)
-  const matMod = (materialScore(allItems) - 10) / 5 * 4;
-  
-  // Pattern (±4)
-  const patMod = (patternScore(allItems) - 7) / 3 * 3;
+  // ── STEP 5: Quality adjustments (±15 max) ────────────────
+  const silAdj = top && bot ? ((getSilhouetteScore(top.fit, bot.fit) - 12) / 20 * 8) : 0;
+  const colAdj = (colorScore(allItems)    - 15) / 5  * 4;
+  const matAdj = (materialScore(allItems) - 10) / 5  * 4;
+  const patAdj = (patternScore(allItems)  - 7)  / 3  * 2;
 
-  // Dataset combo signal (boost if known popular pair)
+  // Dataset combo signal
   let comboBoost = 0;
   if (top && bot) {
     const ck  = `${top.subtype}|${bot.subtype}`;
@@ -458,45 +524,21 @@ function fullScoreOutfit(outfit, bucket) {
     if (pri > 0.7) comboBoost = Math.round(pri * 6);
   }
 
-  // ── STEP 6: FINAL SCORE ────────────────────────────────────
-  const qualityAdj = silhouetteMod + colorMod + matMod + patMod;
-  let finalScore = Math.round(occasionScore + qualityAdj + comboBoost);
-  
-  // Apply clash penalty (AFTER all adjustments)
-  if (hasClash) {
-    finalScore = Math.round(finalScore * 0.55);
-  }
-
-  return Math.min(100, Math.max(0, finalScore));
+  // ── STEP 6: Final ─────────────────────────────────────────
+  let score = Math.round(occBase + silAdj + colAdj + matAdj + patAdj + comboBoost);
+  // Clash penalty applied last
+  if (topTier === 4 || botTier === 4) score = Math.round(score * 0.5);
+  return Math.min(100, Math.max(0, score));
 }
 // ═══════════════════════════════════════════════════════════
 // SCORE LABEL
 // ═══════════════════════════════════════════════════════════
 function scoreLabel(score) {
   if (score>=90) return "Perfect Match";
-  if (score>=78) return "Recommended";
-  if (score>=62) return "Good Match";
+  if (score>=70) return "Recommended";
   if (score>=50) return "Experimental";
   return "Weak Match";
 }
-
-
-const BUCKET_VIBES = {
-  party:        { mood:"party-ready and bold",        verbs:["turns heads","commands attention","owns the room","makes a statement"],        style_note:"High-contrast styling and statement pieces signal pure party energy." },
-  date_night:   { mood:"romantic and elevated",       verbs:["sets the mood","radiates allure","feels effortlessly intimate","strikes the perfect balance"], style_note:"Polished yet approachable — the perfect romantic combination." },
-  office:       { mood:"polished and professional",   verbs:["projects authority","looks boardroom-ready","balances structure and ease","signals quiet confidence"], style_note:"Clean lines and refined silhouettes make this a standout professional look." },
-  casual:       { mood:"effortless and laid-back",    verbs:["feels lived-in and cool","nails that off-duty ease","is easy to wear all day","looks put-together without trying"], style_note:"Relaxed proportions and comfortable pieces make this perfect for everyday." },
-  coffee_date:  { mood:"charming and relaxed-chic",   verbs:["strikes a perfect daytime note","feels warm and approachable","is chic without being overdressed","radiates effortless charm"], style_note:"Soft textures and feminine shapes make this ideal for a daytime outing." },
-  summer_picnic:{ mood:"breezy and sun-ready",        verbs:["is made for sunny days","feels fresh and carefree","captures that warm-weather ease","is perfectly laid-back"], style_note:"Lightweight fabrics and easy silhouettes are built for outdoor warmth." },
-  streetwear:   { mood:"bold and street-ready",       verbs:["owns the street","hits that hype-culture note","is effortlessly cool","has serious street cred"], style_note:"Oversized proportions and graphic elements deliver that signature street-style edge." },
-  minimalist:   { mood:"clean and intentional",       verbs:["speaks through restraint","achieves quiet elegance","lets quality do the talking","is refined and deliberate"], style_note:"A tonal palette and considered proportions define this understated aesthetic." },
-  feminine:     { mood:"soft and effortlessly feminine", verbs:["celebrates softness","feels gracefully romantic","radiates gentle femininity","is delightfully pretty"], style_note:"Flowing silhouettes and delicate details create an effortlessly feminine ensemble." },
-  edgy:         { mood:"dark and unapologetically bold", verbs:["makes a fearless statement","channels that rock-and-roll edge","refuses to be ignored","is confidently rebellious"], style_note:"Dark textures and structured silhouettes deliver an unapologetic edge." },
-  ethnic:       { mood:"culturally rich and celebratory", verbs:["honours South Asian elegance","radiates festive warmth","celebrates heritage beautifully","is perfectly occasion-dressed"], style_note:"Rich fabrics and traditional silhouettes create a look steeped in cultural beauty." },
-};
-
-// Alias for backward compat
-function getSilhouetteScore(t, b) { return getSilScore(t, b); }
 
 // ═══════════════════════════════════════════════════════════
 // SMART EXPLANATION GENERATOR
@@ -805,34 +847,8 @@ function scoreBadgeColor(score){
 // ═══════════════════════════════════════════════════════════
 // OUTFIT CARD
 // ═══════════════════════════════════════════════════════════
-// GEMINI API HELPER
-// ═══════════════════════════════════════════════════════════
-async function callGemini(prompt) {
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDeveloperKeyPlaceholder", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:300,temperature:0.85}})
-  });
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
-}
-
 function OutfitCard({outfit}){
   const{bucket,score,scoreLabel:label,reason}=outfit;
-  const[aiReason,setAiReason]=useState(null);
-  const[aiBuy,setAiBuy]=useState(null);
-  const[loadingReason,setLoadingReason]=useState(false);
-  const[loadingBuy,setLoadingBuy]=useState(false);
-  const[showBuy,setShowBuy]=useState(false);
-  const[expanded,setExpanded]=useState(false);
-
-  // Auto-fetch reason on mount if Gemini key exists
-  useEffect(()=>{
-    if(!getGeminiKey()) return;
-    const timer = setTimeout(()=>fetchAiReason(), 300 + Math.random()*600);
-    return ()=>clearTimeout(timer);
-  },[]);
-
   const pieces=[
     outfit.top&&{label:"Top",item:outfit.top},
     outfit.bottom&&{label:"Bottom",item:outfit.bottom},
@@ -841,32 +857,8 @@ function OutfitCard({outfit}){
     outfit.shoes&&{label:"Shoes",item:outfit.shoes},
     outfit.bag&&{label:"Bag",item:outfit.bag},
   ].filter(Boolean);
-
-  const outfitSummary = pieces.map(p=>`${p.label}: ${p.item.subtype} (${p.item.color}, ${p.item.material})`).join(", ");
-
-  async function fetchAiReason(){
-    if(aiReason||loadingReason) return;
-    setLoadingReason(true);
-    const prompt = `You are a top fashion stylist writing a punchy 2-sentence outfit verdict. The occasion is "${bucket.name}". The outfit has: ${outfitSummary}. The compatibility score is ${score}%. Write in second person ("This outfit..."), be specific about the actual pieces and occasion. Be honest — if the score is low, explain what clashes. No hashtags. No markdown.`;
-    const txt = await callGemini(prompt);
-    setAiReason(txt || reason);
-    setLoadingReason(false);
-  }
-
-  async function fetchAiBuy(){
-    if(aiBuy||loadingBuy) return;
-    setLoadingBuy(true);
-    setShowBuy(true);
-    const existing = pieces.map(p=>p.item.subtype).join(", ");
-    const prompt = `You are a personal stylist. The user owns: ${outfitSummary}. The occasion is "${bucket.name}" and the outfit scores ${score}%. Suggest exactly 3 specific items to buy next that would complete or elevate this look. Format your response as exactly 3 lines, each starting with a bullet "• Item Name: one sentence why it works". Be specific (e.g. "• Black Strappy Heels: add height and polish to the satin skirt for an elevated party look"). No intro sentence.`;
-    const txt = await callGemini(prompt);
-    setAiBuy(txt || "• No suggestions available right now.");
-    setLoadingBuy(false);
-  }
-
   return(
     <div style={{background:"white",borderRadius:20,overflow:"hidden",boxShadow:"0 4px 20px rgba(68,33,42,0.08)",border:`1px solid ${P.blush}`,fontFamily:"'Cormorant Garamond',Georgia,serif"}}>
-      {/* Header */}
       <div style={{background:bucket.bg,padding:"13px 17px",borderBottom:`2px solid ${bucket.color}22`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:20}}>{bucket.emoji}</span>
@@ -880,8 +872,6 @@ function OutfitCard({outfit}){
           <div style={{fontSize:10,color:P.muted,marginTop:2}}>{label}</div>
         </div>
       </div>
-
-      {/* Pieces */}
       <div style={{padding:"15px 17px"}}>
         <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:13}}>
           {pieces.map(({label:l,item:it})=>{
@@ -892,85 +882,8 @@ function OutfitCard({outfit}){
             </div>;
           })}
         </div>
-
-        {/* Reason block */}
-        <div style={{background:P.cream,borderRadius:10,padding:"10px 12px",marginBottom:11,borderLeft:`3px solid ${P.blush}`,position:"relative",minHeight:44}}>
-          {loadingReason ? (
-            <div style={{display:"flex",alignItems:"center",gap:8,color:P.muted,fontSize:12}}>
-              <span style={{display:"inline-block",width:14,height:14,border:`2px solid ${P.blush}`,borderTopColor:P.brown,borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>
-              Gemini is styling this…
-            </div>
-          ) : (
-            <div style={{fontSize:12,color:P.brownMid,lineHeight:1.7}}>
-              {aiReason ? (
-                <><span style={{fontSize:13,marginRight:5}}>✨</span>{aiReason}</>
-              ) : (
-                <><span style={{fontSize:13,marginRight:5}}>💡</span>{reason}</>
-              )}
-            </div>
-          )}
-          {!aiReason && !loadingReason && (
-            <button onClick={fetchAiReason} style={{
-              position:"absolute",top:8,right:8,
-              background:"linear-gradient(135deg,#7c3aed,#a855f7)",
-              color:"white",border:"none",borderRadius:8,
-              padding:"3px 9px",fontSize:10,fontWeight:700,
-              cursor:"pointer",fontFamily:"inherit",letterSpacing:0.3,
-              display:"flex",alignItems:"center",gap:4,
-            }}>
-              <span>✨</span> {getGeminiKey()?"Retry Gemini":"Ask Gemini"}
-            </button>
-          )}
-        </div>
-
-        {/* Buy Next */}
-        <button onClick={fetchAiBuy} style={{
-          width:"100%",background:showBuy?"transparent":`linear-gradient(135deg,${P.brown},#7c3aed)`,
-          color:showBuy?P.muted:"white",border:showBuy?`1px dashed ${P.blush}`:"none",
-          borderRadius:10,padding:"9px 14px",fontSize:12,fontWeight:700,
-          cursor:"pointer",fontFamily:"inherit",
-          display:"flex",alignItems:"center",justifyContent:"center",gap:6,
-          marginBottom: showBuy ? 10 : 0,
-          transition:"all .2s",
-        }}>
-          {loadingBuy ? (
-            <><span style={{display:"inline-block",width:12,height:12,border:"2px solid white",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/> Finding your next buys…</>
-          ) : (
-            <>{showBuy ? "↑ Hide suggestions" : "🛍️ What to buy next?"}</>
-          )}
-        </button>
-
-        {showBuy && (
-          <div style={{borderRadius:12,border:`1px solid ${P.blush}`,overflow:"hidden",background:"white"}}>
-            <div style={{background:`linear-gradient(135deg,${P.brown}18,#7c3aed18)`,padding:"8px 12px",borderBottom:`1px solid ${P.blush}`,fontSize:11,fontWeight:700,color:P.brown,letterSpacing:0.5,textTransform:"uppercase"}}>
-              🛍️ Buy Next — Gemini Picks
-            </div>
-            <div style={{padding:"10px 12px"}}>
-              {loadingBuy ? (
-                <div style={{color:P.muted,fontSize:12,padding:"6px 0"}}>Finding the perfect additions…</div>
-              ) : aiBuy ? (
-                aiBuy.split("\n").filter(l=>l.trim()).map((line,i)=>{
-                  const parts = line.replace(/^•\s*/,"").split(":");
-                  const name = parts[0]?.trim();
-                  const why = parts.slice(1).join(":").trim();
-                  return(
-                    <div key={i} style={{display:"flex",gap:10,padding:"7px 0",borderBottom:i<2?`1px solid ${P.creamDark}`:"none"}}>
-                      <span style={{fontSize:16,flexShrink:0}}>{"🧥👗👟👜💍".split("")[i]||"✨"}</span>
-                      <div>
-                        <div style={{fontSize:12,fontWeight:700,color:P.noir,marginBottom:2}}>{name}</div>
-                        <div style={{fontSize:11,color:P.muted,lineHeight:1.5}}>{why}</div>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div style={{color:P.muted,fontSize:12}}>No suggestions available.</div>
-              )}
-            </div>
-          </div>
-        )}
+        <div style={{background:P.cream,borderRadius:10,padding:"9px 11px",fontSize:12,color:P.brownMid,lineHeight:1.7,borderLeft:`3px solid ${P.blush}`}}>💡 {reason}</div>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
