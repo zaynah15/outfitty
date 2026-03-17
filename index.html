@@ -480,6 +480,24 @@ function scoreLabel(score) {
   return "Weak Match";
 }
 
+
+const BUCKET_VIBES = {
+  party:        { mood:"party-ready and bold",        verbs:["turns heads","commands attention","owns the room","makes a statement"],        style_note:"High-contrast styling and statement pieces signal pure party energy." },
+  date_night:   { mood:"romantic and elevated",       verbs:["sets the mood","radiates allure","feels effortlessly intimate","strikes the perfect balance"], style_note:"Polished yet approachable — the perfect romantic combination." },
+  office:       { mood:"polished and professional",   verbs:["projects authority","looks boardroom-ready","balances structure and ease","signals quiet confidence"], style_note:"Clean lines and refined silhouettes make this a standout professional look." },
+  casual:       { mood:"effortless and laid-back",    verbs:["feels lived-in and cool","nails that off-duty ease","is easy to wear all day","looks put-together without trying"], style_note:"Relaxed proportions and comfortable pieces make this perfect for everyday." },
+  coffee_date:  { mood:"charming and relaxed-chic",   verbs:["strikes a perfect daytime note","feels warm and approachable","is chic without being overdressed","radiates effortless charm"], style_note:"Soft textures and feminine shapes make this ideal for a daytime outing." },
+  summer_picnic:{ mood:"breezy and sun-ready",        verbs:["is made for sunny days","feels fresh and carefree","captures that warm-weather ease","is perfectly laid-back"], style_note:"Lightweight fabrics and easy silhouettes are built for outdoor warmth." },
+  streetwear:   { mood:"bold and street-ready",       verbs:["owns the street","hits that hype-culture note","is effortlessly cool","has serious street cred"], style_note:"Oversized proportions and graphic elements deliver that signature street-style edge." },
+  minimalist:   { mood:"clean and intentional",       verbs:["speaks through restraint","achieves quiet elegance","lets quality do the talking","is refined and deliberate"], style_note:"A tonal palette and considered proportions define this understated aesthetic." },
+  feminine:     { mood:"soft and effortlessly feminine", verbs:["celebrates softness","feels gracefully romantic","radiates gentle femininity","is delightfully pretty"], style_note:"Flowing silhouettes and delicate details create an effortlessly feminine ensemble." },
+  edgy:         { mood:"dark and unapologetically bold", verbs:["makes a fearless statement","channels that rock-and-roll edge","refuses to be ignored","is confidently rebellious"], style_note:"Dark textures and structured silhouettes deliver an unapologetic edge." },
+  ethnic:       { mood:"culturally rich and celebratory", verbs:["honours South Asian elegance","radiates festive warmth","celebrates heritage beautifully","is perfectly occasion-dressed"], style_note:"Rich fabrics and traditional silhouettes create a look steeped in cultural beauty." },
+};
+
+// Alias for backward compat
+function getSilhouetteScore(t, b) { return getSilScore(t, b); }
+
 // ═══════════════════════════════════════════════════════════
 // SMART EXPLANATION GENERATOR
 // ═══════════════════════════════════════════════════════════
