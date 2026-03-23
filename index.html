@@ -19,8 +19,11 @@ html{scroll-behavior:smooth;}
 body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--text);overflow-x:hidden;}
 button{font-family:'Nunito',sans-serif;cursor:pointer;border:none;outline:none;}
 input,select{font-family:'Nunito',sans-serif;outline:none;}
-.page{display:none !important;}
-.page.active{display:block !important;}
+.page{display:none !important;opacity:0;transition:opacity .3s ease;}
+.page.active{display:block !important;opacity:1;}
+#app-page.active{display:block !important;}
+#app-page .wapp{padding-top:0;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
 
 /* ══════════════════════════════════════════
    AUTH PAGE
@@ -117,6 +120,7 @@ input,select{font-family:'Nunito',sans-serif;outline:none;}
   background:rgba(10,51,35,.97);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   display:flex;align-items:center;justify-content:space-between;
   padding:0 32px;box-shadow:0 2px 20px rgba(10,51,35,.35);
+  transition:opacity .3s;
 }
 .hnav-brand{font-family:'Funkley',sans-serif;font-size:26px;color:var(--gold);letter-spacing:2px;}
 .hnav-links{display:flex;gap:4px;background:rgba(255,255,255,.1);border-radius:14px;padding:4px;}
@@ -207,9 +211,13 @@ input,select{font-family:'Nunito',sans-serif;outline:none;}
 ══════════════════════════════════════════ */
 #app-page{min-height:100vh;background:#F8F6F0;}
 #app-page.active{display:block !important;}
+#app-page .wapp{padding-top:0;}
 #app-root{min-height:100vh;}
 
 /* wardrobe redesign styles (used by React) */
+/* WardrobeApp inner nav is hidden - use global hnav */
+.wapp .wnav{display:none!important;}
+.wapp{padding-top:0!important;}
 .wapp{min-height:100vh;background:#F8F6F0;font-family:'Nunito',sans-serif;}
 .wnav{
   position:sticky;top:0;z-index:500;height:64px;
@@ -421,6 +429,23 @@ input,select{font-family:'Nunito',sans-serif;outline:none;}
 </head>
 <body>
 
+<!-- PERSISTENT NAV (hidden on auth) -->
+  <nav class="hnav">
+    <div class="hnav-brand">FITSY</div>
+    <div class="hnav-links">
+      <button class="hnav-link on" data-page="home" onclick="goHome();scrollTo0();">Home</button>
+      <button class="hnav-link" data-page="closet" onclick="openApp('wardrobe')">My Closet</button>
+      <button class="hnav-link" data-page="outfits" onclick="openApp('outfits')">Outfits</button>
+      <button class="hnav-link" data-page="next" onclick="openApp('next')">What's Next</button>
+      <button class="hnav-link" data-page="style" onclick="openApp('style')">Fitsy Style</button>
+    </div>
+    <div class="hnav-right">
+      <div class="hnav-av"><img id="hnavImg" src="" alt=""/></div>
+      <span class="hnav-name" id="hnavName"></span>
+      <button class="hnav-out" onclick="doLogout()">Sign out</button>
+    </div>
+  </nav>
+
 <!-- AUTH PAGE -->
 <div id="auth-page" class="page active">
   <div class="bg-blob bb1"></div><div class="bg-blob bb2"></div><div class="bg-blob bb3"></div>
@@ -465,20 +490,7 @@ input,select{font-family:'Nunito',sans-serif;outline:none;}
 
 <!-- HOME PAGE -->
 <div id="home-page" class="page">
-  <nav class="hnav">
-    <div class="hnav-brand">FITSY</div>
-    <div class="hnav-links">
-      <button class="hnav-link on" onclick="scrollTo0()">Home</button>
-      <button class="hnav-link" onclick="openApp('wardrobe')">My Closet</button>
-      <button class="hnav-link" onclick="openApp('outfits')">Outfits</button>
-      <button class="hnav-link" onclick="openApp('next')">What's Next</button>
-    </div>
-    <div class="hnav-right">
-      <div class="hnav-av"><img id="hnavImg" src="" alt=""/></div>
-      <span class="hnav-name" id="hnavName"></span>
-      <button class="hnav-out" onclick="doLogout()">Sign out</button>
-    </div>
-  </nav>
+
 
   <section class="hero" id="hero">
     <div class="hero-bg"></div>
@@ -612,14 +624,48 @@ function doLogout(){
 function showPage(id){
   ['auth-page','home-page','app-page'].forEach(pid=>{
     const el=document.getElementById(pid);
-    el.classList.remove('active');el.style.cssText='';
+    el.classList.remove('active');
+    el.style.display='none';
+    el.style.opacity='0';
   });
-  const p=document.getElementById(id);p.classList.add('active');
-  if(id==='app-page'){p.style.display='block';}
+  const p=document.getElementById(id);
+  p.style.display='block';
+  p.style.opacity='0';
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      p.classList.add('active');
+      p.style.opacity='1';
+    });
+  });
   window.scrollTo(0,0);
+  updateNavActive(id);
+  // Show/hide persistent nav
+  const persistNav = document.querySelector('nav.hnav');
+  if(persistNav){
+    persistNav.style.display = (id==='home-page'||id==='app-page') ? 'flex' : 'none';
+  }
+}
+function updateNavActive(pageId){
+  // Update home nav active state
+  document.querySelectorAll('.hnav-link').forEach(btn=>{
+    btn.classList.remove('on');
+  });
+  if(pageId==='home-page'){
+    const homeBtn=document.querySelector('.hnav-link[data-page="home"]');
+    if(homeBtn) homeBtn.classList.add('on');
+  } else if(pageId==='app-page'){
+    const view = window._currentAppView||'wardrobe';
+    const map={'wardrobe':'closet','outfits':'outfits','next':'next'};
+    const activeBtn=document.querySelector(`.hnav-link[data-page="${map[view]||view}"]`);
+    if(activeBtn) activeBtn.classList.add('on');
+  }
 }
 function scrollTo0(){window.scrollTo({top:0,behavior:'smooth'});}
-function openApp(view){showPage('app-page');mountApp(view);}
+function openApp(view){
+  window._currentAppView=view||'wardrobe';
+  showPage('app-page');
+  mountApp(view);
+}
 function goHome(){showPage('home-page');}
 window.goHome=goHome;
 
@@ -627,7 +673,7 @@ function setupHome(u){
   const img=document.getElementById('hnavImg');
   if(u.avatarSrc){img.src=u.avatarSrc;img.style.display='block';}
   document.getElementById('hnavName').textContent=u.displayName||u.username;
-  spawnParticles();setupFitsyHover();setupAboutObserver();setupEyes();
+  spawnParticles();setupFitsyHover();setupAboutObserver();setupEyes();setupScrollNav();
 }
 function spawnParticles(){
   const wrap=document.getElementById('hParts');
@@ -642,6 +688,22 @@ function spawnParticles(){
       animationDuration:(10+Math.random()*14)+'s',animationDelay:(Math.random()*12)+'s',borderRadius:'50%'});
     wrap.appendChild(d);
   }
+}
+function setupScrollNav(){
+  // Update nav based on which section is visible
+  const hero = document.getElementById('hero');
+  const about = document.getElementById('about');
+  if (!hero || !about) return;
+  const obs = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting && e.target.id==='hero'){
+        document.querySelectorAll('.hnav-link').forEach(b=>b.classList.remove('on'));
+        const homeBtn=document.querySelector('.hnav-link[data-page="home"]');
+        if(homeBtn) homeBtn.classList.add('on');
+      }
+    });
+  },{threshold:0.2});
+  obs.observe(hero);
 }
 function setupFitsyHover(){
   const fw=document.getElementById('fitsyW');
@@ -693,8 +755,11 @@ function setupEyes(){
 }
 // Init
 (function(){
+  // Hide nav initially
+  const pnav = document.querySelector('nav.hnav');
+  if(pnav) pnav.style.display='none';
   const saved=localStorage.getItem('fitsy_user');
-  if(saved){try{curUser=JSON.parse(saved);showPage('home-page');setupHome(curUser);}catch(e){localStorage.removeItem('fitsy_user');}}
+  if(saved){try{curUser=JSON.parse(saved);showPage('home-page');setupHome(curUser);}catch(e){localStorage.removeItem('fitsy_user');showPage('auth-page');}}
   else showPage('auth-page');
 })();
 </script>
@@ -1978,6 +2043,12 @@ function WardrobeApp({initialView, onBack, user}) {
         <WhatsNextPanel wardrobe={wardrobe}/>
       </div>}
 
+      {/* FITSY STYLE VIEW */}
+      {view==='style' && <div className="npage">
+        <div className="npage-head">Fitsy Style 🎨</div>
+        <p style={{color:'#7a5c4a',fontSize:14,marginBottom:24}}>Discover your personal aesthetic and get tailored style advice from Fitsy.</p>
+        <FitsyStylePage wardrobe={wardrobe} user={user}/>
+      </div>}
       {showForm && <ItemForm initialData={editItem} onSave={handleSave} onClose={closeForm} mode={editItem?'edit':'add'}/>}
     </div>
   );
@@ -2028,6 +2099,45 @@ function WhatsNextPanel({wardrobe}) {
           <div className="ncard-rs">{r.reason}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function FitsyStylePage({wardrobe, user}) {
+  const styles = [
+    {name:'Minimalist',desc:'Clean lines, neutral tones, quality basics.',emoji:'🤍',color:'#8fa8c4'},
+    {name:'Streetwear',desc:'Bold graphics, oversized fits, urban edge.',emoji:'🧢',color:'#839958'},
+    {name:'Feminine',desc:'Soft fabrics, floral prints, elegant silhouettes.',emoji:'🌸',color:'#D3968C'},
+    {name:'Edgy',desc:'Dark tones, leather accents, statement pieces.',emoji:'⚡',color:'#44212a'},
+    {name:'Bohemian',desc:'Earthy tones, flowing fabrics, artisan details.',emoji:'🌿',color:'#7a8a3a'},
+    {name:'Classic',desc:'Timeless pieces, structured tailoring, polished looks.',emoji:'👔',color:'#105666'},
+  ];
+  const categories = wardrobe.length > 0
+    ? Object.entries(wardrobe.reduce((a,i)=>({...a,[i.category]:(a[i.category]||0)+1}),{}))
+        .sort((a,b)=>b[1]-a[1]).slice(0,3)
+    : [];
+  return (
+    <div>
+      {wardrobe.length>0 && (
+        <div style={{background:'white',borderRadius:20,padding:24,marginBottom:24,border:'1px solid rgba(10,51,35,.07)',display:'flex',alignItems:'center',gap:20,flexWrap:'wrap'}}>
+          <div>
+            <div style={{fontWeight:800,color:'#0A3323',fontSize:15,marginBottom:6}}>Your Closet Profile</div>
+            <div style={{color:'#7a5c4a',fontSize:13}}>{wardrobe.length} pieces · Top categories: {categories.map(([c])=>c).join(', ')}</div>
+          </div>
+        </div>
+      )}
+      <div style={{fontWeight:800,color:'#0A3323',fontSize:14,marginBottom:14,textTransform:'uppercase',letterSpacing:1}}>Explore Aesthetics</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:14}}>
+        {styles.map((s,i)=>(
+          <div key={i} style={{background:'white',borderRadius:16,padding:'22px 20px',border:`2px solid ${s.color}22`,cursor:'pointer',transition:'all .2s',boxShadow:'0 2px 10px rgba(10,51,35,.05)'}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.boxShadow=`0 10px 28px ${s.color}33`;e.currentTarget.style.borderColor=s.color;}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 2px 10px rgba(10,51,35,.05)';e.currentTarget.style.borderColor=`${s.color}22`;}}>
+            <div style={{fontSize:32,marginBottom:10}}>{s.emoji}</div>
+            <div style={{fontWeight:800,color:'#0A3323',fontSize:14,marginBottom:5}}>{s.name}</div>
+            <div style={{fontSize:12,color:'#7a5c4a',lineHeight:1.6}}>{s.desc}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
