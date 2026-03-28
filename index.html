@@ -1059,8 +1059,10 @@ body{
 }
 .subtype-item img{
   width:100%;height:90px;
-  object-fit:cover;
-  background:#f0ede5;
+  object-fit:contain;
+  object-position:center center;
+  background:#f7f5f0;
+  padding:4px;
   display:block;
 }
 .subtype-item-placeholder{
@@ -1456,7 +1458,7 @@ body{
 .wardrobe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1.2rem;}
 .item-card{background:white;border-radius:16px;overflow:hidden;box-shadow:0 2px 10px rgba(10,51,35,.06);border:1.5px solid rgba(10,51,35,.06);transition:all .25s;position:relative;cursor:default;}
 .item-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(10,51,35,.12);border-color:rgba(131,153,88,.25);}
-.item-card-img{width:100%;height:160px;object-fit:cover;background:#f8f6f0;display:block;}
+.item-card-img{width:100%;height:160px;object-fit:contain;object-position:center center;background:#f7f5f0;display:block;padding:6px;}
 .item-card-img-placeholder{width:100%;height:160px;background:linear-gradient(135deg,#f0ebe0,#e5ddd0);display:flex;align-items:center;justify-content:center;font-size:2.5rem;}
 .item-card-body{padding:.65rem .75rem .75rem}
 .item-card-subtype{font-weight:800;font-size:.82rem;color:var(--green-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1489,7 +1491,7 @@ body{
 .subtype-item{display:flex;flex-direction:column;align-items:center;gap:.3rem;cursor:pointer;border:1.5px solid rgba(10,51,35,.08);border-radius:12px;overflow:hidden;background:white;transition:all .18s;}
 .subtype-item:hover{border-color:var(--green-moss);transform:scale(1.03);box-shadow:0 3px 10px rgba(10,51,35,.1);}
 .subtype-item.selected{border-color:var(--green-dark);background:rgba(10,51,35,.04);box-shadow:0 0 0 2px var(--green-dark);}
-.subtype-item img{width:100%;height:90px;object-fit:cover;background:#f0ede5;display:block;}
+.subtype-item img{width:100%;height:90px;object-fit:contain;object-position:center center;background:#f7f5f0;display:block;padding:4px;}
 .subtype-item-placeholder{width:100%;height:90px;background:linear-gradient(135deg,#f0ebe0,#e8e0d0);display:flex;align-items:center;justify-content:center;font-size:1.8rem;}
 .subtype-name{font-size:.65rem;font-weight:700;text-align:center;padding:.25rem .3rem .4rem;color:rgba(10,51,35,.65);line-height:1.2;}
 .step3-selected{display:flex;align-items:center;gap:.9rem;padding:.8rem;background:#f7f6f1;border-radius:12px;margin-bottom:1.2rem;}
@@ -1763,10 +1765,12 @@ body{
 }
 .outfit-item-tile img {
   width:80px;height:96px;
-  object-fit:cover;
+  object-fit:contain;
+  object-position:center center;
   border-radius:10px;
   border:1.5px solid rgba(10,51,35,.08);
-  background:#f0ede5;
+  background:#f7f5f0;
+  padding:4px;
   box-shadow:0 2px 8px rgba(0,0,0,.08);
   transition:transform .2s;
 }
@@ -2538,10 +2542,11 @@ body{
 }
 .outfit-item-tile img {
   width: 74px; height: 90px;
-  object-fit: cover; object-position: center top;
+  object-fit: contain; object-position: center center;
   border-radius: 10px;
   border: 1.5px solid rgba(10,51,35,.08);
-  background: #f0ede5;
+  background: #f7f5f0;
+  padding: 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,.07);
   transition: transform .2s;
 }
@@ -3044,7 +3049,7 @@ body{
   <div class="modal-step" id="step-3" style="display:none">
     <div class="step-label">Step 3 of 3 — Details</div>
     <div class="step3-selected">
-      <img id="step3-img" src="" style="width:70px;height:88px;object-fit:cover;border-radius:10px;border:2px solid var(--green-moss);display:none"/>
+      <img id="step3-img" src="" style="width:70px;height:88px;object-fit:contain;object-position:center;background:#f7f5f0;padding:3px;border-radius:10px;border:2px solid var(--green-moss);display:none"/>
       <div>
         <div id="step3-name" style="font-weight:800;color:var(--green-dark)"></div>
         <div id="step3-cat" style="font-size:.8rem;color:var(--green-moss)"></div>
@@ -6001,7 +6006,7 @@ function renderCloset(){
     // Always use subtypeImageSrc first, then SUBTYPE_IMAGES lookup
     const imgSrc=it.subtypeImageSrc||(typeof SUBTYPE_IMAGES!=='undefined'?(SUBTYPE_IMAGES[it.subtype]||SUBTYPE_IMAGES[it.subtype.replace(/['']/g,"'")])||null:null);
     const imgHtml=imgSrc
-      ?`<img class="item-card-img" src="${imgSrc}" alt="${it.subtype}" loading="lazy" style="object-fit:cover;object-position:center top"/>`
+      ?`<img class="item-card-img" src="${imgSrc}" alt="${it.subtype}" loading="lazy"/>`
       :`<div class="item-card-img-placeholder">${CAT_EMOJI[it.category]||'👗'}</div>`;
     const colorHex=it.color?(COLOR_MAP[it.color]||'#ccc'):null;
     const tags=[it.material,it.fit].filter(Boolean).slice(0,2);
@@ -6059,7 +6064,7 @@ function buildSubtypeGrid(cat){
     const img=typeof SUBTYPE_IMAGES!=='undefined'?(SUBTYPE_IMAGES[name]||null):null;
     const sel=name===selectedSubtype?' selected':'';
     return `<div class="subtype-item${sel}" onclick="selectSubtype('${name.replace(/'/g,"\\'")}',this)">
-      ${img?`<img src="${img}" alt="${name}" style="object-fit:cover;object-position:center top"/>`:`<div class="subtype-item-placeholder">${CAT_EMOJI[cat]||'👗'}</div>`}
+      ${img?`<img src="${img}" alt="${name}"/>`:`<div class="subtype-item-placeholder">${CAT_EMOJI[cat]||'👗'}</div>`}
       <div class="subtype-name">${name}</div></div>`;
   }).join('');
 }
