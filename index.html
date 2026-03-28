@@ -2193,8 +2193,31 @@ body{
 
 
 
-/* ── FUNKLEY FONT ────────────────────────────────────── */
-/* Injected via JS after images load */
+/* ── AI FIT VERDICT ─────────────────────────────────────────── */
+.fit-verdict-row {
+  display: flex; align-items: flex-start; gap: .55rem;
+  margin-bottom: .6rem;
+  padding: .5rem .75rem;
+  border-radius: 10px;
+  background: rgba(10,51,35,.03);
+  border: 1px solid rgba(10,51,35,.07);
+}
+.fit-verdict-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .25rem .65rem; border-radius: 999px;
+  font-size: .7rem; font-weight: 800;
+  white-space: nowrap; flex-shrink: 0;
+  letter-spacing: .02em;
+}
+.fit-verdict-yes   { background: rgba(10,90,50,.12); color: #0a6032; border: 1.5px solid rgba(10,90,50,.2); }
+.fit-verdict-no    { background: rgba(180,40,30,.09); color: #a02010; border: 1.5px solid rgba(180,40,30,.18); }
+.fit-verdict-maybe { background: rgba(180,140,0,.1);  color: #7a5800; border: 1.5px solid rgba(180,140,0,.2); }
+.fit-verdict-reason {
+  font-size: .74rem; color: rgba(10,51,35,.65);
+  line-height: 1.5; font-style: italic;
+}
+
+
 
 /* ── PWA SPLASH / INSTALL ────────────────────────────── */
 .pwa-install-banner {
@@ -5463,7 +5486,15 @@ function generateStaticReasoning(outfit, bucket) {
     improve = `On-trend for your age group. Accessorise with something unexpected — an oversized bag or a cap — to make it distinctly yours.`;
   }
 
-  return { why, where, how: improve };
+  // Static fits verdict (overridden by AI when key is present)
+  const staticFits = score >= 72 ? 'yes' : score >= 52 ? 'maybe' : 'no';
+  const fitReasonMap = {
+    yes:   `This outfit genuinely belongs in ${bucket.label} — the ${topName} sets the right tone from the start.`,
+    maybe: `This could pass for ${bucket.label} with the right styling, but some signals point elsewhere.`,
+    no:    `Honestly, the ${topName} reads as a different occasion — this combination doesn't land for ${bucket.label}.`,
+  };
+
+  return { fits: staticFits, fitReason: fitReasonMap[staticFits], why, where, how: improve };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -5475,24 +5506,26 @@ async function callAIForOutfit(idx, outfit, key, fallbackData) {
   const {items, score} = outfit;
   const ageRange = window.USER_AGE_RANGE || '18-25';
   const desc = items.map(i=>`${i.subtype}${i.color?' in '+i.color:''}${i.material?' ('+i.material+')':''}`).join(', ');
+  const bucketLabel = (typeof activeBucket !== 'undefined' ? activeBucket.label : null) || 'general';
   
-  // Tone calibrated to score AND age
   const toneByScore = score>=80 ? 'warm and affirming' : score>=60 ? 'constructive, noting what works and what could be better' : 'direct and honest about the mismatch';
-  const ageContext = `The user is in the ${ageRange} age range — calibrate formality expectations accordingly (e.g., younger audiences can pull off more relaxed formal styling; older audiences expect stricter dress codes).`;
-  
-  const prompt = `You are a sharp personal stylist giving concise outfit feedback. ${ageContext}
+  const ageContext = `The user is in the ${ageRange} age range.`;
+
+  const prompt = `You are a sharp personal stylist. ${ageContext}
 
 Outfit: ${desc}
-Occasion: ${bucket?.label || 'general'} (score: ${score}%)
+Occasion category: ${bucketLabel} (system score: ${score}%)
 
-Write ONLY valid JSON — no markdown, no preamble:
+Respond ONLY with valid JSON — no markdown, no extra text:
 {
-  "why": "1-2 punchy sentences on why this works or doesn't for the occasion. Be specific to these exact pieces.",
-  "where": "One sentence on the ideal occasion or setting for this outfit.",
-  "how": "One actionable improvement tip. If score is high (80+), make it an optional polish. If low (<60), name the specific problem piece and what to swap it for."
+  "fits": "yes|no|maybe",
+  "fitReason": "One sharp sentence: does this outfit genuinely belong in the ${bucketLabel} category? Name the specific piece that makes or breaks it.",
+  "why": "1-2 sentences on the outfit's strengths or flaws for ${bucketLabel}. Be specific to these exact pieces — no generic advice.",
+  "where": "One sentence on the best real-world setting for this outfit.",
+  "how": "One actionable tip. If score≥80, suggest an optional upgrade. If score<60, name the problem piece and what to replace it with."
 }
 
-Tone: ${toneByScore}. Be trend-aware (2025-2026 fashion). Never sound like a bot or repeat generic phrases. Be the stylist friend who tells you the truth.`;
+Rules: 'fits' must be exactly 'yes', 'no', or 'maybe'. Tone: ${toneByScore}. Be trend-aware (2025-2026). Never sound like a bot. Be the stylist friend who tells you the truth.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -5505,7 +5538,7 @@ Tone: ${toneByScore}. Be trend-aware (2025-2026 fashion). Never sound like a bot
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 280,
+        max_tokens: 320,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -5514,9 +5547,11 @@ Tone: ${toneByScore}. Be trend-aware (2025-2026 fashion). Never sound like a bot
       const raw = (data.content?.[0]?.text || '').replace(/```json?|```/g,'').trim();
       let parsed = {};
       try { parsed = JSON.parse(raw); } catch(e) { parsed = {why: raw, where: fallbackData.where, how: fallbackData.how}; }
-      if (parsed.why) {
+      if (parsed.why || parsed.fitReason) {
         displayReasoning(idx, {
-          why: parsed.why,
+          fits: parsed.fits || null,
+          fitReason: parsed.fitReason || null,
+          why: parsed.why || fallbackData.why,
           where: parsed.where || fallbackData.where,
           how: parsed.how || parsed.variation || fallbackData.how,
         });
@@ -5823,7 +5858,7 @@ function getComboBonus(items, bid) {
 function scoreOutfit(items, bucket) {
   const bid = bucket.id;
 
-  // Ethnic hard gate — must have ethnic piece
+  // ── ETHNIC HARD GATE ──────────────────────────────────────────
   if (bid === 'ethnic') {
     const hasEthnic = items.some(it =>
       ETHNIC_REQUIRED.has(it.subtype) ||
@@ -5832,22 +5867,64 @@ function scoreOutfit(items, bucket) {
     if (!hasEthnic) return 0;
   }
 
-  // Lounge hard gate — no formal/party pieces
+  // ── FORMAL HARD GATES ─────────────────────────────────────────
+  if (bid === 'formal') {
+    // Hoodies / sweatshirts in formal = max 22
+    const hasCasualTop = items.some(it => ['Hoodie','Sweatshirt','Graphic Tee','T-Shirt','Tank Top','Crop Top','Bralette'].includes(it.subtype||''));
+    if (hasCasualTop) return Math.min(22, scoreOutfitUncapped(items, bucket));
+    // Joggers / leggings / cargo in formal = max 20
+    const hasCasualBot = items.some(it => ['Joggers','Leggings','Cargo Pants','Denim Shorts','Shorts','Biker Shorts'].includes(it.subtype||''));
+    if (hasCasualBot) return Math.min(20, scoreOutfitUncapped(items, bucket));
+    // Denim material in formal = max 35
+    const hasDenim = items.some(it => (it.material||'').toLowerCase().includes('denim') || (it.subtype||'').toLowerCase().includes('jeans'));
+    if (hasDenim) return Math.min(35, scoreOutfitUncapped(items, bucket));
+  }
+
+  // ── OFFICE HARD GATES ─────────────────────────────────────────
+  if (bid === 'office') {
+    const hasCasualTop = items.some(it => ['Hoodie','Sweatshirt','Graphic Tee','Bralette','Tube Top','Crop Top'].includes(it.subtype||''));
+    if (hasCasualTop) return Math.min(28, scoreOutfitUncapped(items, bucket));
+    const hasLeisureBot = items.some(it => ['Joggers','Leggings','Shorts','Denim Shorts','Biker Shorts'].includes(it.subtype||''));
+    if (hasLeisureBot) return Math.min(25, scoreOutfitUncapped(items, bucket));
+  }
+
+  // ── PARTY HARD GATES ──────────────────────────────────────────
+  if (bid === 'party') {
+    // Lounge pieces at a party = cap low
+    const hasLoungeItem = items.some(it => ['Hoodie','Sweatshirt','Joggers','Leggings','Sweatpants'].includes(it.subtype||''));
+    if (hasLoungeItem) return Math.min(30, scoreOutfitUncapped(items, bucket));
+    // Fleece/cotton-basics for party = penalise
+    const hasFleece = items.some(it => (it.material||'').toLowerCase() === 'fleece');
+    if (hasFleece) return Math.min(38, scoreOutfitUncapped(items, bucket));
+  }
+
+  // ── LOUNGE HARD GATE ──────────────────────────────────────────
   if (bid === 'lounge') {
     const hasClashItem = items.some(it => {
       const s = (it.subtype||'').toLowerCase();
-      return ['corset','bustier','sequin dress','mermaid','tuxedo','stiletto','platform heels'].some(x=>s.includes(x));
+      return ['corset','bustier','sequin dress','mermaid','stiletto','platform heels'].some(x=>s.includes(x));
     });
-    if (hasClashItem) return Math.min(35, scoreOutfitUncapped(items, bucket));
+    if (hasClashItem) return Math.min(30, scoreOutfitUncapped(items, bucket));
   }
 
-  // Beach hard gate — no heavy formal pieces
+  // ── BEACH HARD GATE ───────────────────────────────────────────
   if (bid === 'beach') {
     const hasClash = items.some(it => {
       const s = (it.subtype||'').toLowerCase();
       return ['wool coat','trench coat','turtleneck','blazer'].some(x=>s.includes(x));
     });
-    if (hasClash) return Math.min(30, scoreOutfitUncapped(items, bucket));
+    if (hasClash) return Math.min(28, scoreOutfitUncapped(items, bucket));
+  }
+
+  // ── SEQUIN / EMBELLISHED BOOST ────────────────────────────────
+  // Sequin top or dress = floors at 78 for party, 72 for date
+  if (['party','date','formal'].includes(bid)) {
+    const hasSequin = items.some(it =>
+      (it.material||'').toLowerCase().includes('sequin') ||
+      ['Sequin Dress','Corset Top','Bustier','Bodycon Dress'].includes(it.subtype||'')
+    );
+    if (hasSequin && bid === 'party') return Math.max(78, scoreOutfitUncapped(items, bucket));
+    if (hasSequin && bid === 'date')  return Math.max(72, scoreOutfitUncapped(items, bucket));
   }
 
   return scoreOutfitUncapped(items, bucket);
@@ -6222,7 +6299,22 @@ function displayReasoning(idx, data) {
   const panel = document.getElementById(`reasoning-${idx}`);
   if (!panel) return;
   const howtxt = data.how || data.variation || '';
+
+  // AI category fit verdict badge
+  let fitBadgeHtml = '';
+  if (data.fits) {
+    const fitsMap = {
+      yes:   { cls:'fit-verdict-yes',   icon:'✓', label:'Fits the vibe' },
+      no:    { cls:'fit-verdict-no',    icon:'✗', label:"Doesn't fit" },
+      maybe: { cls:'fit-verdict-maybe', icon:'~', label:'Could work' },
+    };
+    const f = fitsMap[data.fits] || fitsMap['maybe'];
+    const reasonHtml = data.fitReason ? `<div class="fit-verdict-reason">${data.fitReason}</div>` : '';
+    fitBadgeHtml = `<div class="fit-verdict-row"><span class="fit-verdict-badge ${f.cls}">${f.icon} ${f.label}</span>${reasonHtml}</div>`;
+  }
+
   panel.innerHTML = `<div class="reasoning-block">
+    ${fitBadgeHtml}
     <div class="reason-row"><span class="reason-icon">💡</span><div><div class="reason-label">Why it works</div><div class="reason-text">${data.why||''}</div></div></div>
     ${data.where ? `<div class="reason-row"><span class="reason-icon">📍</span><div><div class="reason-label">Where to wear</div><div class="reason-text">${data.where}</div></div></div>` : ''}
     ${howtxt ? `<div class="reason-row"><span class="reason-icon">🔧</span><div><div class="reason-label">How to improve</div><div class="reason-text">${howtxt}</div></div></div>` : ''}
