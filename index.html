@@ -5403,7 +5403,6 @@ function generateStaticReasoning(outfit, bucket) {
   const topItem = items.find(i=>i.category==='Tops') || items.find(i=>i.category==='Dresses & Jumpsuits');
   const botItem = items.find(i=>i.category==='Bottoms');
   const shoeItem = items.find(i=>i.category==='Shoes');
-  const bagItem = items.find(i=>i.category==='Bags');
   const matScore = getMaterialScore(items, bid);
   const colScore = getColorHarmonyScore(items);
   const silScore = getSilhouetteScore(items);
@@ -5411,92 +5410,119 @@ function generateStaticReasoning(outfit, bucket) {
 
   const topName = topItem?.subtype || 'top';
   const botName = botItem?.subtype || '';
+  const shoeName = shoeItem?.subtype || '';
+  const shoeHeel = (shoeItem?.heel || '').toLowerCase();
   const colors = items.map(i=>i.color).filter(Boolean);
   const colorStory = colors.length >= 2 ? `${colors.slice(0,2).join(' + ')}` : colors[0] || '';
   const material = topItem?.material || '';
   const fit = topItem?.fit || '';
 
+  // Detect shoe-specific issues
+  const highHeelOnBeach = bid === 'beach' && shoeItem && (shoeHeel === 'high' || ['Stilettos','Platform Heels'].includes(shoeName));
+  const heavyBootOnBeach = bid === 'beach' && shoeItem && ['Combat Boots','Knee-High Boots','Ankle Boots'].includes(shoeName);
+  const heelOnLounge = bid === 'lounge' && shoeItem && (shoeHeel === 'high' || shoeHeel === 'platform');
+
   // ── WHY IT WORKS ───────────────────────────────────────────
   let why = '';
-  if (score >= 88) {
+  if (highHeelOnBeach) {
+    why = `ok so — ${shoeName} and sand? that's a no. the rest of the outfit has potential but the shoes are literally sinking this look.`;
+  } else if (heavyBootOnBeach) {
+    why = `the ${shoeName} are doing too much for a beach day. everything above the ankle is fine, it's just the footwear that's off.`;
+  } else if (heelOnLounge) {
+    why = `heels for loungewear is giving photoshoot not actual chill. the outfit itself is cozy but the shoes broke the vibe.`;
+  } else if (score >= 88) {
     const whyOptions = [
-      `The ${material || 'fabric'} on this ${topName} reads as ${bid} without trying — it's the kind of piece that does the work for you.`,
-      `${colorStory ? `${colorStory} is a genuinely strong colour story — ` : ''}Every element aligns with ${bucket.label} energy: silhouette, material, and occasion signals all point the same direction.`,
-      `This is a well-calibrated ${bucket.label} outfit. The ${fit||'cut'} of the ${topName}${botName?` against the ${botName}`:''}  creates natural visual flow.`,
-      `Strong match. The ${material||'choice of fabric'} and ${fit||'fit'} are specifically right for ${bucket.label} — this is the kind of outfit that photographs well and feels intentional.`,
+      `ok the ${material || 'fabric'} on this ${topName} is literally doing all the work — it just reads ${bid} without trying.`,
+      `${colorStory ? colorStory + ' is such a clean colour story. ' : ''}everything here is aligned — silhouette, fabric, vibe. this one's sorted.`,
+      `the ${fit||'cut'} of the ${topName}${botName ? ' with the ' + botName : ''} creates that effortless balance. well put together.`,
+      `strong match energy. the ${material||'fabric choice'} is specifically right for ${bucket.label} and it shows.`,
     ];
     why = pickUnique(whyOptions, outfitKey+'why');
   } else if (score >= 72) {
     const whyOptions = [
-      `Solid ${bucket.label} pick. The ${topName}${botName?' + '+botName:''} combination works — it just needs stronger accessories to hit its full potential.`,
-      `This reads as ${bucket.label} but isn't fully locked in. ${colScore < 0.7 ? 'The colours could use a neutral anchor.' : silScore < 0.7 ? 'The silhouette balance is slightly off.' : 'A few styling tweaks would sharpen the look.'}`,
-      `Recommended for ${bucket.label}. ${material ? `The ${material} fabric is a good call` : 'The fabric choice works'}, though${botName ? ` the ${botName}` : ' the bottom'} could be swapped for something with a bit more intention.`,
+      `solid ${bucket.label} pick. the ${topName}${botName ? ' + ' + botName : ''} works — just needs a stronger accessory to land properly.`,
+      `this reads as ${bucket.label} but it's not fully locked in. ${colScore < 0.7 ? 'the colours need a neutral anchor.' : silScore < 0.7 ? 'the silhouette balance is slightly off.' : 'one small styling choice away from being great.'}`,
+      `the ${material || 'fabric'} is a good call for ${bucket.label}${botName ? `, though the ${botName} could be more intentional.` : '.'}`,
     ];
     why = pickUnique(whyOptions, outfitKey+'why');
   } else if (score >= 55) {
     const whyOptions = [
-      `This could work for ${bucket.label} with styling, but the signals aren't fully aligned — ${material && matScore < 0.6 ? `the ${material} reads as a different occasion` : 'the combination needs a stronger focus piece'}.`,
-      `Not a natural ${bucket.label} fit, but workable. ${botName ? `The ${botName}` : 'The bottom half'} is pulling the look toward a different context.`,
-      `Experimental territory for ${bucket.label}. ${colScore < 0.6 ? 'The colour combination needs work.' : 'The fabric choices are slightly mismatched for this occasion.'}`,
+      `not a natural ${bucket.label} fit, but it's not unsalvageable. ${botName ? `the ${botName}` : 'the bottom'} is pulling it somewhere else.`,
+      `experimental territory for ${bucket.label} — could be a "corporate by the sea" or kdrama-coded moment if styled right, but as-is it reads confused.`,
+      `the signals here are mixed. ${material && matScore < 0.6 ? `${material} doesn't usually belong in ${bid}.` : 'the combination needs a stronger anchor piece.'}`,
     ];
     why = pickUnique(whyOptions, outfitKey+'why');
   } else {
     const whyOptions = [
-      `Honest take: this doesn't land for ${bucket.label}. ${material ? `${material} isn't the right fabric for this setting.` : 'The pieces signal different occasions.'}`,
-      `The styling logic doesn't hold here. ${botName ? `${botName} paired with ${topName}` : 'This combination'} works better in a different context — not ${bucket.label}.`,
-      `Low match. ${matScore < 0.5 ? `The ${material||'materials'} contradict the ${bucket.label} vibe.` : 'The silhouette and colour choices clash with this occasion.'}`,
+      `real talk — this doesn't work for ${bucket.label}. ${shoeName ? `the ${shoeName} alone is doing major damage here.` : material ? `${material} is the wrong fabric for this setting.` : 'the pieces signal completely different occasions.'}`,
+      `the styling logic isn't holding. ${botName ? `${botName} + ${topName}` : 'this combo'} lands better in a different context, not ${bucket.label}.`,
+      `low match. ${matScore < 0.5 ? `the ${material||'materials'} contradict the ${bucket.label} vibe` : shoeName ? `the ${shoeName} is the main issue` : 'the silhouette and colour choices clash with this occasion'}.`,
     ];
     why = pickUnique(whyOptions, outfitKey+'why');
   }
+    ];
+    why = pickUnique(whyOptions, outfitKey+'why');
+  } else {
 
   // ── WHERE TO WEAR ──────────────────────────────────────────
   const whereMap = {
-    casual: ['A relaxed coffee run, weekend market, or low-key hangout.','Saturday errands, brunch with friends, or a casual afternoon out.','Anywhere the dress code is "look put-together without trying."'],
-    office: ['Board meeting, desk days, or anywhere you need to project quiet authority.','Client calls, presentations, or a full office day — looks credible.','Monday to Friday in a professional environment, hot-desk or boardroom.'],
-    party: ['Birthday nights out, club events, or any after-dark celebration.','A rooftop party, birthday dinner, or anywhere the lights are low and the playlist is loud.','Anything with a dress code that says "look like you made an effort."'],
-    date: ['Dinner for two, a gallery opening, or anywhere you want to feel effortlessly attractive.','First dates, anniversary dinners, or a walk somewhere beautiful.','Evening plans where you want to look like you dressed up without saying you did.'],
-    ethnic: ['Festival season, family celebrations, weddings, or puja ceremonies.','Eid, Diwali, shaadi functions — anywhere tradition and elegance intersect.','Mehendi, sangeet, or any occasion that calls for heritage dressing.'],
-    streetwear: ['Urban hangouts, sneaker drops, music festivals, or skateparks.','The kind of places where you\'d bump into a photographer and not mind.','City streets, markets, or anywhere the aesthetic is self-expressive.'],
-    travel: ['Long-haul flights, train journeys, or city explorations where comfort matters.','Airport runs, sightseeing days, or anywhere you need to look decent after 10 hours.','Any day where you\'re moving a lot and need your outfit to keep up.'],
-    lounge: ['Netflix nights, Sunday mornings, or working from home in style.','A cozy evening in, lazy weekend at home, or a slow morning ritual.','Anywhere the only dress code is "comfortable and still yourself."'],
-    formal: ['Black-tie events, award ceremonies, or gala dinners.','Weddings, formal receptions, or any occasion where you\'re expected to dress up.','Events with a strict dress code — cocktail minimum, black tie preferred.'],
-    beach: ['Beach days, pool parties, or resort stays.','Tropical vacations, waterfront lunches, or coastal explorations.','Anywhere the vibe is sun, sand, and salt air.'],
-    experimental: ['Art shows, fashion events, or anywhere self-expression is the point.','Creative spaces, concept store openings, or editorial shoots.','Anywhere being the most interesting person in the room is the goal.'],
+    casual:      ['a coffee run, weekend market, or any low-key day out', 'brunch with friends or Saturday afternoon errands', 'anywhere the vibe is "put-together but effortless"'],
+    office:      ['a full desk day, client meeting, or presentation', 'hot-desk or boardroom — looks credible and polished', 'anywhere you need to quietly project "I have my life together"'],
+    party:       ['a birthday night out, rooftop bar, or wherever the playlist gets loud', 'any after-dark event with a "look like you tried" dress code', 'club nights, themed parties, dinner with the main characters'],
+    date:        ['dinner for two, gallery walk, or a scenic evening out', 'first dates, anniversary dinners, or anywhere you want to feel quietly magnetic', 'the kind of night you\'d actually get photographed and look good'],
+    ethnic:      ['Diwali, shaadi functions, Eid, puja — any traditional gathering', 'mehendi, sangeet, or anywhere heritage dressing is the vibe', 'festival season or any family occasion that calls for something special'],
+    streetwear:  ['sneaker drops, urban markets, music festivals, skate parks', 'the kind of places where a stranger might stop you for a fit pic', 'city streets or creative hangouts where self-expression is the point'],
+    travel:      ['long-haul flights, airport runs, or a full sightseeing day', 'any day where you\'re moving a lot and need your outfit to keep up', 'city explorations, train journeys, or layovers where you still want to look good'],
+    lounge:      ['netflix nights, slow Sunday mornings, WFH days', 'a cozy evening in or lazy at-home day where comfort is the whole brief', 'any situation where the dress code is just "be comfortable and yourself"'],
+    formal:      ['black-tie events, galas, award ceremonies', 'weddings, formal receptions, or anything with a strict dress code', 'cocktail minimum, black tie preferred — this is for those occasions'],
+    beach:       ['beach days, pool parties, resort stays', 'coastal explorations or waterfront lunches', 'anywhere the vibe is sun, sand, and no shoes required'],
+    experimental:['art shows, concept store openings, or fashion-forward events', 'creative spaces, editorial shoots, or anywhere being interesting is the point', 'anywhere you want to be the most memorable person in the room'],
   };
-  const whereOptions = whereMap[bid] || [`Any ${bucket.label} occasion.`];
+  const whereOptions = whereMap[bid] || [`any ${bucket.label} occasion`];
   const where = whereOptions[Math.floor(Math.random() * whereOptions.length)];
 
   // ── HOW TO IMPROVE ─────────────────────────────────────────
   let improve = '';
-  if (score >= 85) {
+  if (highHeelOnBeach || heavyBootOnBeach) {
+    improve = `swap the ${shoeName} for flat sandals or slides — that one change fixes everything instantly.`;
+  } else if (heelOnLounge) {
+    improve = `swap those heels for slippers or chunky socks — the outfit needs footwear that matches the lounge energy.`;
+  } else if (score >= 85) {
     const improveOptions = [
-      `Already strong — lean in with a statement accessory that picks up one of the ${colorStory ? colorStory.split(' + ')[0] : 'palette'} tones.`,
-      `Solid as-is. The only upgrade: swap the shoes for something with more texture or contrast to add depth.`,
-      `This look is there. The optional polish: a minimal bag and one piece of jewellery to tie it together.`,
+      `already strong — lean in with a statement accessory in ${colorStory ? colorStory.split(' + ')[0] : 'one of the palette'} tones.`,
+      `solid as-is. the only upgrade: swap shoes for something with more texture or contrast.`,
+      `this look is there. optional polish: a minimal bag + one piece of jewellery.`,
     ];
     improve = pickUnique(improveOptions, outfitKey+'imp');
   } else if (score >= 65) {
-    if (colScore < 0.65) improve = `Add a neutral piece — white, beige, or black — to anchor the colour story and pull everything together.`;
-    else if (silScore < 0.65) improve = `${fit === 'Oversized' || topItem?.fit === 'Relaxed' ? 'Try a more fitted bottom to balance the volume on top.' : 'A flowy or wider-leg bottom would balance the fitted top better.'}`;
-    else improve = shoeItem ? `The ${shoeItem.subtype} works, but a ${bid==='office'?'block heel or loafer':bid==='party'?'strappy sandal or ankle boot':'sneaker or flat'} would sharpen the occasion read.` : `Add intentional footwear — it's the missing signal that locks the outfit into ${bucket.label}.`;
+    if (colScore < 0.65) improve = `add a neutral anchor — white, beige, or black somewhere — and the colour story clicks into place.`;
+    else if (silScore < 0.65) improve = `${fit === 'Oversized' || topItem?.fit === 'Relaxed' ? 'try a more fitted bottom to balance the volume on top.' : 'a flowy or wide-leg bottom would create better balance here.'}`;
+    else improve = shoeItem ? `the ${shoeItem.subtype} works but a ${bid==='office'?'block heel or loafer':bid==='party'?'strappy sandal or ankle boot':'clean sneaker or flat'} would sharpen the occasion read.` : `intentional footwear is the missing signal — add a shoe that locks this into ${bucket.label}.`;
   } else {
-    if (matScore < 0.5) improve = `Swap the ${material || 'top fabric'} for something with a ${bid==='party'?'satin or velvet':bid==='office'?'silk or structured weave':bid==='casual'?'cotton or jersey':'lighter'} feel — it'll immediately shift the occasion read.`;
-    else improve = `This needs a stronger anchor piece for ${bucket.label}. Consider building around a different ${topName.toLowerCase().includes('dress') ? 'dress' : 'top'} — one that signals ${bucket.label} from the start.`;
+    if (highHeelOnBeach) improve = `ditch the ${shoeName} and grab flat sandals — that's the whole fix.`;
+    else if (matScore < 0.5) improve = `swap the ${material || 'fabric'} for something with ${bid==='party'?'satin or velvet energy':bid==='office'?'structure — silk or a tailored weave':bid==='casual'?'cotton or jersey ease':'a lighter feel'} and this becomes a completely different outfit.`;
+    else improve = `this needs a different anchor piece for ${bucket.label}. start over from the ${topName.toLowerCase().includes('dress') ? 'dress' : 'top'} — pick something that signals ${bucket.label} from the first look.`;
   }
 
   // Age-range note
   if (['36-45','46+'].includes(ageRange) && score >= 70 && bid === 'office') {
-    improve = `Polished choice for your style profile. For maximum authority, pair with a structured bag and minimal jewellery — less is more.`;
+    improve = `looking polished. for maximum credibility, add a structured bag and keep jewellery minimal — less is always more here.`;
   } else if (['under-18','18-25'].includes(ageRange) && score >= 70 && bid === 'streetwear') {
-    improve = `On-trend for your age group. Accessorise with something unexpected — an oversized bag or a cap — to make it distinctly yours.`;
+    improve = `on trend. make it yours with something unexpected — an oversized bag, a cap, or a single standout accessory.`;
   }
 
   // Static fits verdict (overridden by AI when key is present)
   const staticFits = score >= 72 ? 'yes' : score >= 52 ? 'maybe' : 'no';
   const fitReasonMap = {
-    yes:   `This outfit genuinely belongs in ${bucket.label} — the ${topName} sets the right tone from the start.`,
-    maybe: `This could pass for ${bucket.label} with the right styling, but some signals point elsewhere.`,
-    no:    `Honestly, the ${topName} reads as a different occasion — this combination doesn't land for ${bucket.label}.`,
+    yes:   highHeelOnBeach
+      ? `the outfit itself works but ${shoeName} is a hard veto for beach — swap the footwear.`
+      : `the ${topName} sets the right tone — this genuinely belongs in ${bucket.label}.`,
+    maybe: heelOnLounge
+      ? `cozy outfit but the heels are breaking the lounge energy — the rest is fine.`
+      : `could pass for ${bucket.label} with some styling, but the signals are mixed.`,
+    no:    heavyBootOnBeach
+      ? `${shoeName} on the beach — the footwear alone is killing this score.`
+      : `the ${topName} reads as a different occasion entirely — this doesn't land for ${bucket.label}.`,
   };
 
   return { fits: staticFits, fitReason: fitReasonMap[staticFits], why, where, how: improve };
@@ -5512,25 +5538,45 @@ async function callAIForOutfit(idx, outfit, key, fallbackData) {
   const ageRange = window.USER_AGE_RANGE || '18-25';
   const desc = items.map(i=>`${i.subtype}${i.color?' in '+i.color:''}${i.material?' ('+i.material+')':''}`).join(', ');
   const bucketLabel = (typeof activeBucket !== 'undefined' ? activeBucket.label : null) || 'general';
-  
-  const toneByScore = score>=80 ? 'warm and affirming' : score>=60 ? 'constructive, noting what works and what could be better' : 'direct and honest about the mismatch';
-  const ageContext = `The user is in the ${ageRange} age range.`;
+  const shoe = items.find(i=>i.category==='Shoes');
+  const shoeNote = shoe ? ` The footwear is: ${shoe.subtype}${shoe.heel?' ('+shoe.heel+' heel)':''}.` : '';
 
-  const prompt = `You are a sharp personal stylist. ${ageContext}
+  // Build a seed so each outfit gets a different opening style
+  const styleSeeds = [
+    'Start with "ok so"', 'Start with "real talk —"', 'Start with "this one\'s"',
+    'Start with "honestly"', 'Start with "not gonna lie,"', 'Start with "the vibe:"',
+    'Start with "so here\'s the thing —"', 'Start with "lowkey"',
+  ];
+  const seedHint = styleSeeds[idx % styleSeeds.length];
 
-Outfit: ${desc}
-Occasion category: ${bucketLabel} (system score: ${score}%)
+  const toneGuide = score>=80
+    ? 'You love this — hype it up genuinely but keep it sharp. Sound like a cool stylish friend not a corporate bot.'
+    : score>=60
+    ? 'It\'s mid but fixable. Be real about what\'s dragging it down. One specific fix, not a lecture.'
+    : 'This is a miss. Say it clearly but not cruelly. Name the specific problem piece. Be the honest friend.';
 
-Respond ONLY with valid JSON — no markdown, no extra text:
+  const prompt = `You are a Gen Z personal stylist — sharp, trend-aware, friendly. You text like a real person, not a fashion magazine.
+
+Outfit: ${desc}${shoeNote}
+Occasion: ${bucketLabel} (score: ${score}%)
+User age range: ${ageRange}
+
+IMPORTANT — check if the footwear makes sense for ${bucketLabel}. If stilettos/heels appear in beach or lounge, call it out specifically.
+For scores 50–70%: this could be "corporate by the sea" or an anime/kdrama-coded intentional aesthetic — if so, name it and explain why it's experimental.
+For scores below 50%: be direct but not mean. One killer issue, one fix.
+
+${seedHint}. Keep each field to 1–2 sentences max. Never repeat phrases across fields.
+
+Respond ONLY as valid JSON, no markdown:
 {
   "fits": "yes|no|maybe",
-  "fitReason": "One sharp sentence: does this outfit genuinely belong in the ${bucketLabel} category? Name the specific piece that makes or breaks it.",
-  "why": "1-2 sentences on the outfit's strengths or flaws for ${bucketLabel}. Be specific to these exact pieces — no generic advice.",
-  "where": "One sentence on the best real-world setting for this outfit.",
-  "how": "One actionable tip. If score≥80, suggest an optional upgrade. If score<60, name the problem piece and what to replace it with."
+  "fitReason": "Does this outfit actually belong in ${bucketLabel}? Name the one piece that makes or breaks it.",
+  "why": "What's the vibe and why it works or doesn't. Mention specific pieces. Gen Z tone.",
+  "where": "One real, specific place or scenario where you'd actually wear this.",
+  "how": "The one thing to swap or add that changes everything. Be specific (name the item, colour, style)."
 }
 
-Rules: 'fits' must be exactly 'yes', 'no', or 'maybe'. Tone: ${toneByScore}. Be trend-aware (2025-2026). Never sound like a bot. Be the stylist friend who tells you the truth.`;
+Tone: ${toneGuide} Current trends: 2025–2026. Think Substack fashion girls, Pinterest aesthetics, K-drama styling, anime references where relevant.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -5543,7 +5589,7 @@ Rules: 'fits' must be exactly 'yes', 'no', or 'maybe'. Tone: ${toneByScore}. Be 
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 320,
+        max_tokens: 340,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -5564,7 +5610,6 @@ Rules: 'fits' must be exactly 'yes', 'no', or 'maybe'. Tone: ${toneByScore}. Be 
       }
     }
   } catch(e) { /* keep static */ }
-  // On failure keep the static reasoning already shown
 }
 
 
@@ -5752,7 +5797,82 @@ const SUBTYPE_AFFINITY = {
   'Saree':          {ethnic:1.0,formal:0.72,party:0.6,date:0.35,casual:0.1,office:0.2,lounge:0.0,beach:0.0,streetwear:0.0,travel:0.1,experimental:0.15},
 };
 
-function getSubtypeScore(subtype, bid) {
+// SHOE AFFINITY — shoes are context anchors that can kill or lift a score
+const SHOE_AFFINITY = {
+  // Flat/practical footwear
+  'Flat Sandals':    {beach:1.0,casual:0.88,travel:0.82,lounge:0.7,ethnic:0.65,date:0.5,party:0.35,office:0.2,formal:0.0,streetwear:0.5,experimental:0.5},
+  'Slides':          {beach:0.95,casual:0.85,lounge:0.9,travel:0.72,party:0.2,date:0.3,office:0.0,formal:0.0,streetwear:0.55,ethnic:0.2,experimental:0.4},
+  'Flip Flops':      {beach:0.98,casual:0.7,lounge:0.75,travel:0.55,party:0.0,date:0.0,office:0.0,formal:0.0,streetwear:0.2,ethnic:0.0,experimental:0.15},
+  'White Sneakers':  {casual:0.95,streetwear:0.82,travel:0.88,date:0.55,party:0.3,beach:0.7,office:0.3,lounge:0.6,formal:0.0,ethnic:0.05,experimental:0.6},
+  'Chunky Sneakers': {streetwear:0.92,casual:0.82,experimental:0.85,travel:0.72,party:0.4,date:0.45,beach:0.55,office:0.05,formal:0.0,lounge:0.5,ethnic:0.0},
+  'Running Shoes':   {casual:0.82,travel:0.88,lounge:0.7,streetwear:0.65,beach:0.55,party:0.0,date:0.05,office:0.0,formal:0.0,ethnic:0.0,experimental:0.3},
+  'Canvas Sneakers': {casual:0.92,streetwear:0.78,travel:0.8,beach:0.65,lounge:0.65,party:0.25,date:0.35,office:0.2,formal:0.0,ethnic:0.05,experimental:0.5},
+  'Loafers':         {office:0.92,casual:0.78,date:0.72,formal:0.65,travel:0.7,party:0.45,streetwear:0.5,lounge:0.1,beach:0.15,ethnic:0.3,experimental:0.55},
+  'Ballet Flats':    {casual:0.85,office:0.78,date:0.72,travel:0.75,ethnic:0.6,party:0.4,formal:0.5,beach:0.25,streetwear:0.25,lounge:0.3,experimental:0.4},
+  'Mules':           {casual:0.82,office:0.72,date:0.75,party:0.55,travel:0.65,beach:0.4,ethnic:0.4,formal:0.3,streetwear:0.35,lounge:0.3,experimental:0.5},
+  'Slip-Ons':        {casual:0.85,travel:0.8,lounge:0.7,beach:0.6,streetwear:0.6,party:0.2,date:0.3,office:0.2,formal:0.0,ethnic:0.2,experimental:0.4},
+  // Mid heels
+  'Block Heels':     {date:0.88,party:0.82,office:0.85,formal:0.75,casual:0.55,ethnic:0.65,travel:0.4,beach:0.1,streetwear:0.3,lounge:0.0,experimental:0.55},
+  'Kitten Heels':    {office:0.92,date:0.82,formal:0.78,casual:0.62,ethnic:0.7,party:0.6,travel:0.45,beach:0.05,streetwear:0.15,lounge:0.0,experimental:0.4},
+  'Heeled Mules':    {date:0.82,party:0.72,office:0.75,casual:0.52,formal:0.6,ethnic:0.55,beach:0.1,streetwear:0.3,travel:0.3,lounge:0.0,experimental:0.5},
+  'Slingback Heels': {office:0.88,date:0.82,party:0.72,formal:0.75,casual:0.5,ethnic:0.6,travel:0.3,beach:0.05,streetwear:0.2,lounge:0.0,experimental:0.45},
+  'Wedge Sandals':   {casual:0.78,beach:0.75,date:0.7,party:0.55,travel:0.65,ethnic:0.5,office:0.45,formal:0.2,lounge:0.1,streetwear:0.3,experimental:0.45},
+  // High heels
+  'Stilettos':       {party:0.95,date:0.9,formal:0.88,experimental:0.8,ethnic:0.65,office:0.6,casual:0.1,lounge:0.0,beach:0.0,streetwear:0.25,travel:0.05},
+  'Platform Heels':  {party:0.88,date:0.78,experimental:0.85,streetwear:0.72,formal:0.5,casual:0.3,ethnic:0.4,office:0.35,lounge:0.0,beach:0.0,travel:0.1},
+  'D\'Orsay Flats':  {office:0.85,date:0.78,casual:0.7,formal:0.65,party:0.5,ethnic:0.6,travel:0.55,beach:0.1,streetwear:0.2,lounge:0.15,experimental:0.45},
+  // Boots
+  'Ankle Boots':     {casual:0.85,streetwear:0.82,date:0.78,party:0.68,office:0.72,travel:0.7,formal:0.4,ethnic:0.2,lounge:0.0,beach:0.0,experimental:0.65},
+  'Chelsea Boots':   {casual:0.88,office:0.78,streetwear:0.8,date:0.72,travel:0.72,party:0.55,formal:0.4,ethnic:0.15,lounge:0.0,beach:0.0,experimental:0.6},
+  'Combat Boots':    {streetwear:0.95,experimental:0.88,casual:0.72,party:0.45,date:0.35,travel:0.6,office:0.2,formal:0.0,lounge:0.0,beach:0.0,ethnic:0.0},
+  'Knee-High Boots': {party:0.75,date:0.72,streetwear:0.8,casual:0.62,experimental:0.82,office:0.45,formal:0.35,travel:0.4,lounge:0.0,beach:0.0,ethnic:0.1},
+  // Ethnic
+  'Kolhapuri Sandals':{ethnic:0.95,casual:0.6,travel:0.55,beach:0.4,date:0.4,party:0.3,office:0.2,formal:0.1,lounge:0.0,streetwear:0.1,experimental:0.3},
+  'Juttis':          {ethnic:0.98,casual:0.55,party:0.5,date:0.4,travel:0.4,formal:0.3,office:0.2,beach:0.1,lounge:0.0,streetwear:0.05,experimental:0.2},
+  'Ethnic Heels':    {ethnic:0.95,party:0.6,formal:0.55,date:0.5,casual:0.3,travel:0.25,office:0.2,beach:0.0,lounge:0.0,streetwear:0.0,experimental:0.2},
+  // Oxford/formal
+  'Oxford Shoes':    {office:0.92,formal:0.85,casual:0.6,date:0.6,streetwear:0.55,travel:0.65,party:0.3,ethnic:0.2,lounge:0.0,beach:0.0,experimental:0.5},
+  'Derby Shoes':     {office:0.88,formal:0.82,casual:0.62,date:0.58,travel:0.6,streetwear:0.45,party:0.3,ethnic:0.15,lounge:0.0,beach:0.0,experimental:0.45},
+  'Monk Strap Shoes':{office:0.85,formal:0.78,casual:0.6,date:0.62,streetwear:0.5,travel:0.55,party:0.35,ethnic:0.2,lounge:0.0,beach:0.0,experimental:0.5},
+  'Mary Janes':      {casual:0.78,office:0.72,date:0.68,party:0.55,experimental:0.7,formal:0.5,ethnic:0.4,travel:0.5,lounge:0.1,beach:0.1,streetwear:0.4},
+  'Strappy Sandals': {party:0.85,date:0.88,beach:0.7,casual:0.6,ethnic:0.72,formal:0.55,office:0.4,travel:0.5,lounge:0.1,streetwear:0.3,experimental:0.65},
+};
+
+// FOOTWEAR CONTEXT SCORING — shoes as a contextual veto or boost
+function getFootwearScore(items, bid) {
+  const shoe = items.find(i => i.category === 'Shoes');
+  if (!shoe) return 0.72; // no shoe = neutral, don't penalise
+
+  const subtype = shoe.subtype || '';
+  const heel = (shoe.heel || '').toLowerCase();
+
+  // Lookup shoe affinity
+  let shoeScore = SHOE_AFFINITY[subtype]?.[bid];
+
+  // If not in map, derive from heel height
+  if (shoeScore === undefined) {
+    const HEEL_AFFINITY = {
+      flat:     {beach:0.85,casual:0.82,travel:0.8,lounge:0.7,office:0.55,ethnic:0.6,party:0.35,date:0.45,formal:0.2,streetwear:0.55,experimental:0.45},
+      low:      {office:0.82,casual:0.75,date:0.72,ethnic:0.68,party:0.55,formal:0.6,beach:0.45,travel:0.65,lounge:0.1,streetwear:0.4,experimental:0.5},
+      mid:      {date:0.85,party:0.78,office:0.85,formal:0.75,casual:0.55,ethnic:0.65,beach:0.15,travel:0.35,lounge:0.0,streetwear:0.3,experimental:0.55},
+      high:     {party:0.92,date:0.88,formal:0.85,ethnic:0.6,office:0.55,casual:0.15,beach:0.0,lounge:0.0,travel:0.05,streetwear:0.2,experimental:0.75},
+      platform: {party:0.85,experimental:0.88,date:0.72,streetwear:0.75,casual:0.3,formal:0.45,office:0.3,ethnic:0.35,beach:0.0,lounge:0.0,travel:0.1},
+    };
+    shoeScore = HEEL_AFFINITY[heel]?.[bid] ?? 0.65;
+  }
+
+  // CRITICAL CONTEXTUAL VETO — impractical footwear kills specific settings
+  const isHighHeel = heel === 'high' || ['Stilettos','Platform Heels','Knee-High Boots'].includes(subtype);
+  const isHeavyBoot = ['Combat Boots','Knee-High Boots','Ankle Boots'].includes(subtype);
+  const isBeach = bid === 'beach';
+  const isLounge = bid === 'lounge';
+
+  if (isHighHeel && isBeach) return 0.0;   // Stilettos on sand = 0%
+  if (isHeavyBoot && isBeach) return 0.05; // Combat boots on beach = 5%
+  if (isHighHeel && isLounge) return 0.05; // Heels in lounge context = near 0
+
+  return shoeScore;
+}
   if (SUBTYPE_AFFINITY[subtype]) return SUBTYPE_AFFINITY[subtype][bid] ?? 0.45;
   // Fallback logic
   const s = subtype.toLowerCase();
@@ -5938,17 +6058,23 @@ function scoreOutfit(items, bucket) {
 function scoreOutfitUncapped(items, bucket) {
   const bid = bucket.id;
 
-  // 6-pillar scoring with weights
-  const matScore = getMaterialScore(items, bid);       // 35%
-  const subScore = items.reduce((s,it)=>s+getSubtypeScore(it.subtype||'',bid),0)/items.length; // 30%
-  const colScore = getColorHarmonyScore(items);        // 15%
-  const silScore = getSilhouetteScore(items);          // 10%
-  const trendBonus = getTrendScore(items, bid);        // 5%
-  const comboBonus = getComboBonus(items, bid);        // 5%
+  // 7-pillar scoring with weights
+  const matScore  = getMaterialScore(items, bid);       // 30%
+  const subScore  = items.reduce((s,it)=>s+getSubtypeScore(it.subtype||'',bid),0)/items.length; // 25%
+  const colScore  = getColorHarmonyScore(items);        // 15%
+  const silScore  = getSilhouetteScore(items);          // 10%
+  const shoeScore = getFootwearScore(items, bid);       // 10%
+  const trendBonus = getTrendScore(items, bid);         // 5%
+  const comboBonus = getComboBonus(items, bid);         // 5%
 
-  const base = (matScore*0.35 + subScore*0.30 + colScore*0.15 + silScore*0.10);
+  const base = (matScore*0.30 + subScore*0.25 + colScore*0.15 + silScore*0.10 + shoeScore*0.10);
   const bonuses = trendBonus + comboBonus;
   const total = Math.min(1, base + bonuses);
+
+  // SHOE VETO: if footwear is critically wrong (score 0), it tanks the whole outfit
+  const shoeVeto = getFootwearScore(items, bid);
+  if (shoeVeto === 0.0) return 0;   // absolute veto (stilettos on beach)
+  if (shoeVeto <= 0.05) return Math.min(8, Math.round(total*100)); // near-zero caps at 8%
 
   // Dominant item override: if a clear category-defining item exists, floor the score
   const hasPartyDominant = bid==='party' && items.some(it => {
