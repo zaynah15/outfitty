@@ -4888,15 +4888,17 @@ const COMBO_PRIORITY = {
 
 // ⚠️ FIREBASE SETUP — Replace with YOUR config from Firebase Console
 // Instructions: see FIREBASE_SETUP.md or the note at the bottom of this file
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+const firebaseConfig = {
+  apiKey: "AIzaSyCTfZEawCBLI1pJibxdsmB7n6tyxKNj5L8",
+  authDomain: "fitsy-app-db344.firebaseapp.com",
+  projectId: "fitsy-app-db344",
+  storageBucket: "fitsy-app-db344.firebasestorage.app",
+  messagingSenderId: "759452332074",
+  appId: "1:759452332074:web:f2f0cd63a4727541d61353"
 };
 
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 let firebaseAuth = null;
 let firebaseReady = false;
 try {
